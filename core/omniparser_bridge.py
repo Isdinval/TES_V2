@@ -5,8 +5,14 @@ No auto-mapping logic here — that's the human's job.
 """
 
 from __future__ import annotations
+
+import os
 from dataclasses import dataclass
+from pathlib import Path
+
 from PIL import Image
+
+YOLO_WEIGHT_FILENAMES = ("model.pt", "best.pt")
 
 
 @dataclass
@@ -112,7 +118,60 @@ def run_detection(
     return candidates
 
 
-def load_models(weights_dir: str = "weights"):
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _candidate_weights_dirs(weights_dir: str | os.PathLike[str] | None) -> list[Path]:
+    candidates: list[Path] = []
+
+    def add(path: str | os.PathLike[str] | None):
+        if not path:
+            return
+        resolved = Path(path).expanduser()
+        if not resolved.is_absolute():
+            # Prefer paths relative to the project root so launching main.py from
+            # another working directory still finds the local OmniParser weights.
+            resolved = _project_root() / resolved
+        if resolved not in candidates:
+            candidates.append(resolved)
+
+    add(os.environ.get("TES_OMNIPARSER_WEIGHTS_DIR"))
+    add(os.environ.get("OMNIPARSER_WEIGHTS_DIR"))
+    add(weights_dir)
+
+    if weights_dir is None:
+        # OmniParser releases and older TES installs are commonly named either
+        # `weight` (singular) or `weights` (plural). Support both layouts.
+        add("weight")
+        add("weights")
+
+    for dirname in ("weight", "weights"):
+        cwd_candidate = Path.cwd() / dirname
+        if cwd_candidate not in candidates:
+            candidates.append(cwd_candidate)
+
+    return candidates
+
+
+def _resolve_yolo_weights_path(weights_root: Path) -> Path | None:
+    for filename in YOLO_WEIGHT_FILENAMES:
+        yolo_path = weights_root / "icon_detect" / filename
+        if yolo_path.exists():
+            return yolo_path
+    return None
+
+
+def _resolve_weights_dir(weights_dir: str | os.PathLike[str] | None = None) -> Path | None:
+    for candidate in _candidate_weights_dirs(weights_dir):
+        yolo_path = _resolve_yolo_weights_path(candidate)
+        florence_path = candidate / "icon_caption_florence"
+        if yolo_path is not None and florence_path.exists():
+            return candidate
+    return None
+
+
+def load_models(weights_dir: str | os.PathLike[str] | None = None):
     """
     Load YOLO and Florence-2 models once at startup.
     Returns (yolo_model, caption_model_processor) or (None, None) if unavailable.
@@ -121,25 +180,31 @@ def load_models(weights_dir: str = "weights"):
         from ultralytics import YOLO
         from transformers import AutoProcessor, AutoModelForCausalLM
         import torch
-        import os
 
-        yolo_path = os.path.join(weights_dir, "icon_detect", "best.pt")
-        florence_path = os.path.join(weights_dir, "icon_caption_florence")
-
-        if not os.path.exists(yolo_path):
-            print(f"[OmniParser] YOLO weights not found at {yolo_path}")
+        resolved_weights_dir = _resolve_weights_dir(weights_dir)
+        if resolved_weights_dir is None:
+            checked = ", ".join(str(path) for path in _candidate_weights_dirs(weights_dir))
+            print(
+                "[OmniParser] Weights not found. Expected "
+                "icon_detect/model.pt (or best.pt) and icon_caption_florence "
+                "in one of: "
+                f"{checked}"
+            )
             return None, None
 
-        yolo_model = YOLO(yolo_path)
+        yolo_path = _resolve_yolo_weights_path(resolved_weights_dir)
+        florence_path = resolved_weights_dir / "icon_caption_florence"
+
+        yolo_model = YOLO(str(yolo_path))
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        processor = AutoProcessor.from_pretrained(florence_path, trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(str(florence_path), trust_remote_code=True)
         model = AutoModelForCausalLM.from_pretrained(
-            florence_path, trust_remote_code=True
+            str(florence_path), trust_remote_code=True
         ).to(device)
         caption_model_processor = {"processor": processor, "model": model}
 
-        print(f"[OmniParser] Models loaded on {device}")
+        print(f"[OmniParser] Models loaded from {resolved_weights_dir} on {device}")
         return yolo_model, caption_model_processor
 
     except Exception as e:
