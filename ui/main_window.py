@@ -188,7 +188,8 @@ class MainWindow(QMainWindow):
                 self,
                 "Modèles non chargés",
                 "Les modèles YOLO/Florence ne sont pas chargés.\n"
-                "Lance main.py après avoir téléchargé les poids OmniParser V2.",
+                "Place les poids OmniParser V2 dans le dossier `weight` ou `weights` "
+                "à la racine du projet, puis relance main.py.",
             )
             return
 
