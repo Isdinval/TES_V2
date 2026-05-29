@@ -1,0 +1,147 @@
+"""
+Thin wrapper around OmniParser V2 (YOLO + Florence-2).
+Returns a list of bbox candidates for the GUI to display.
+No auto-mapping logic here — that's the human's job.
+"""
+
+from __future__ import annotations
+from dataclasses import dataclass
+from PIL import Image
+
+
+@dataclass
+class BboxCandidate:
+    # All coords are relative (0.0–1.0)
+    x: float
+    y: float
+    w: float
+    h: float
+    description: str      # Florence-2 caption
+    confidence: float     # YOLO detection confidence
+    interactable: bool    # YOLO interactable prediction (V2)
+
+    def to_dict(self) -> dict:
+        return {
+            "x": self.x,
+            "y": self.y,
+            "w": self.w,
+            "h": self.h,
+            "description": self.description,
+            "confidence": self.confidence,
+            "interactable": self.interactable,
+        }
+
+
+def run_detection(
+    image: Image.Image,
+    yolo_model,
+    caption_model_processor,
+    box_threshold: float = 0.05,
+    iou_threshold: float = 0.1,
+    imgsz: int = 1920,
+) -> list[BboxCandidate]:
+    """
+    Run OmniParser V2 detection on image.
+    Returns list of BboxCandidate (relative coords).
+    
+    yolo_model and caption_model_processor are loaded once at startup
+    and passed in to avoid reloading on each call.
+    """
+    try:
+        from util.utils import get_som_labeled_img, check_ocr_box
+    except ImportError:
+        # OmniParser utils not available — return empty list gracefully
+        return []
+
+    w, h = image.size
+
+    draw_bbox_config = {
+        "text_scale": 0.8,
+        "text_thickness": 2,
+        "text_padding": 3,
+        "thickness": 3,
+    }
+
+    try:
+        ocr_bbox_rslt, _ = check_ocr_box(
+            image,
+            display_img=False,
+            output_bb_format="xyxy",
+            goal_filtering=None,
+            easyocr_args={"paragraph": False, "text_threshold": 0.9},
+            use_paddleocr=False,
+        )
+        ocr_text, ocr_bbox = ocr_bbox_rslt
+
+        _, label_coordinates, parsed_content_list = get_som_labeled_img(
+            image,
+            yolo_model,
+            BOX_TRESHOLD=box_threshold,
+            output_coord_in_ratio=True,
+            ocr_bbox=ocr_bbox,
+            draw_bbox_config=draw_bbox_config,
+            caption_model_processor=caption_model_processor,
+            ocr_text=ocr_text,
+            iou_threshold=iou_threshold,
+            imgsz=imgsz,
+        )
+    except Exception as e:
+        print(f"[OmniParser] Detection error: {e}")
+        return []
+
+    candidates = []
+    for i, (coords, content) in enumerate(
+        zip(label_coordinates.values(), parsed_content_list)
+    ):
+        # coords are [x_center, y_center, w, h] in ratio OR xyxy — normalize
+        if len(coords) == 4:
+            cx, cy, bw, bh = coords
+            # Convert center format to top-left format
+            candidates.append(
+                BboxCandidate(
+                    x=round(cx - bw / 2, 4),
+                    y=round(cy - bh / 2, 4),
+                    w=round(bw, 4),
+                    h=round(bh, 4),
+                    description=str(content) if not isinstance(content, dict) else content.get("content", ""),
+                    confidence=content.get("confidence", 1.0) if isinstance(content, dict) else 1.0,
+                    interactable=content.get("interactable", True) if isinstance(content, dict) else True,
+                )
+            )
+
+    return candidates
+
+
+def load_models(weights_dir: str = "weights"):
+    """
+    Load YOLO and Florence-2 models once at startup.
+    Returns (yolo_model, caption_model_processor) or (None, None) if unavailable.
+    """
+    try:
+        from ultralytics import YOLO
+        from transformers import AutoProcessor, AutoModelForCausalLM
+        import torch
+        import os
+
+        yolo_path = os.path.join(weights_dir, "icon_detect", "best.pt")
+        florence_path = os.path.join(weights_dir, "icon_caption_florence")
+
+        if not os.path.exists(yolo_path):
+            print(f"[OmniParser] YOLO weights not found at {yolo_path}")
+            return None, None
+
+        yolo_model = YOLO(yolo_path)
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        processor = AutoProcessor.from_pretrained(florence_path, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            florence_path, trust_remote_code=True
+        ).to(device)
+        caption_model_processor = {"processor": processor, "model": model}
+
+        print(f"[OmniParser] Models loaded on {device}")
+        return yolo_model, caption_model_processor
+
+    except Exception as e:
+        print(f"[OmniParser] Could not load models: {e}")
+        return None, None
