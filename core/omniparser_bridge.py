@@ -12,6 +12,8 @@ from pathlib import Path
 
 from PIL import Image
 
+YOLO_WEIGHT_FILENAMES = ("model.pt", "best.pt")
+
 
 @dataclass
 class BboxCandidate:
@@ -152,11 +154,19 @@ def _candidate_weights_dirs(weights_dir: str | os.PathLike[str] | None) -> list[
     return candidates
 
 
+def _resolve_yolo_weights_path(weights_root: Path) -> Path | None:
+    for filename in YOLO_WEIGHT_FILENAMES:
+        yolo_path = weights_root / "icon_detect" / filename
+        if yolo_path.exists():
+            return yolo_path
+    return None
+
+
 def _resolve_weights_dir(weights_dir: str | os.PathLike[str] | None = None) -> Path | None:
     for candidate in _candidate_weights_dirs(weights_dir):
-        yolo_path = candidate / "icon_detect" / "best.pt"
+        yolo_path = _resolve_yolo_weights_path(candidate)
         florence_path = candidate / "icon_caption_florence"
-        if yolo_path.exists() and florence_path.exists():
+        if yolo_path is not None and florence_path.exists():
             return candidate
     return None
 
@@ -176,12 +186,13 @@ def load_models(weights_dir: str | os.PathLike[str] | None = None):
             checked = ", ".join(str(path) for path in _candidate_weights_dirs(weights_dir))
             print(
                 "[OmniParser] Weights not found. Expected "
-                "icon_detect/best.pt and icon_caption_florence in one of: "
+                "icon_detect/model.pt (or best.pt) and icon_caption_florence "
+                "in one of: "
                 f"{checked}"
             )
             return None, None
 
-        yolo_path = resolved_weights_dir / "icon_detect" / "best.pt"
+        yolo_path = _resolve_yolo_weights_path(resolved_weights_dir)
         florence_path = resolved_weights_dir / "icon_caption_florence"
 
         yolo_model = YOLO(str(yolo_path))
