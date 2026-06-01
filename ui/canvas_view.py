@@ -3,6 +3,7 @@ CanvasView: displays the screenshot, overlays YOLO bbox candidates,
 allows the user to:
   - click a candidate bbox to select it
   - click+drag to draw a new bbox manually
+  - sample points for specific click targets (sampling mode)
 Emits signals to the main window.
 """
 
@@ -21,12 +22,14 @@ COLOR_CANDIDATE_HOVER = QColor(100, 149, 237, 220)
 COLOR_SELECTED = QColor(255, 165, 0, 220)       # orange
 COLOR_MAPPED = QColor(50, 205, 50, 180)         # green
 COLOR_DRAW = QColor(255, 69, 0, 220)            # red-orange for live draw
+COLOR_SAMPLED = QColor(255, 255, 0, 220)        # yellow for sampled targets
 
 
 class CanvasView(QWidget):
     # Signals
     candidate_selected = pyqtSignal(dict)   # emitted when user clicks a candidate
     bbox_drawn = pyqtSignal(dict)           # emitted when user finishes drawing a bbox
+    point_sampled = pyqtSignal(dict)        # emitted in sampling mode: {"x", "y"} relative
     selection_cleared = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -43,6 +46,10 @@ class CanvasView(QWidget):
         self._mapped_elements: list[dict] = []  # already mapped elements
         self._selected_idx: int | None = None
         self._hover_idx: int | None = None
+
+        # Sampling state
+        self._sampling_mode = False
+        self._sampled_points: list[dict] = [] # list of {"x", "y"} relative
 
         # Draw state
         self._drawing = False
@@ -63,6 +70,7 @@ class CanvasView(QWidget):
         self._mapped_elements = []
         self._selected_idx = None
         self._hover_idx = None
+        self._sampled_points = []
         self.update()
 
     def set_candidates(self, candidates: list[dict]) -> None:
@@ -77,6 +85,20 @@ class CanvasView(QWidget):
 
     def clear_selection(self) -> None:
         self._selected_idx = None
+        self.update()
+
+    def set_sampling_mode(self, enabled: bool) -> None:
+        self._sampling_mode = enabled
+        if enabled:
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        else:
+            self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self._sampled_points = []
+        self.update()
+
+    def set_sampled_points(self, points: list[dict]) -> None:
+        """Update the list of points to display (relative coords)."""
+        self._sampled_points = points
         self.update()
 
     # ------------------------------------------------------------------
@@ -96,7 +118,7 @@ class CanvasView(QWidget):
         y = (self.height() - scaled.height()) // 2
         return QRect(x, y, scaled.width(), scaled.height())
 
-    def _rel_to_screen(self, rx: float, ry: float, rw: float, rh: float) -> QRect:
+    def _rel_to_screen(self, rx: float, ry: float, rw: float = 0, rh: float = 0) -> QRect:
         ir = self._image_rect()
         x = ir.x() + int(rx * ir.width())
         y = ir.y() + int(ry * ir.height())
@@ -132,6 +154,11 @@ class CanvasView(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        if self._sampling_mode:
+            rx, ry = self._screen_to_rel(event.pos())
+            self.point_sampled.emit({"x": round(rx, 4), "y": round(ry, 4)})
             return
 
         hit = self._hit_candidate(event.pos())
@@ -257,6 +284,13 @@ class CanvasView(QWidget):
                 label = f"{c.get('confidence', 0):.2f}"
                 painter.setPen(color)
                 painter.drawText(rect.x() + 2, rect.y() - 3, label)
+
+        # Draw sampled points
+        painter.setPen(QPen(COLOR_SAMPLED, 2))
+        painter.setBrush(COLOR_SAMPLED)
+        for p in self._sampled_points:
+            pos = self._rel_to_screen(p["x"], p["y"])
+            painter.drawEllipse(pos.topLeft(), 5, 5)
 
         # Live draw rect
         if self._drawing and self._draw_start and self._draw_end:

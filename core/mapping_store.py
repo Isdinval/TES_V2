@@ -75,6 +75,8 @@ def update_corrections(
                 data["scroll_config"] = el["scroll_config"]
             if "drag_target" in el:
                 data["drag_target"] = el["drag_target"]
+            if "choices" in el:
+                data["choices"] = el["choices"]
 
             corrections[key][sid] = data
 
@@ -111,6 +113,7 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             scroll_direction=scroll_cfg.get("direction", "down"),
             scroll_amount=scroll_cfg.get("amount", 1),
             drag_target=data.get("drag_target", ""),
+            choices=data.get("choices", []),
         )
         elements.append(element)
     return elements
@@ -173,6 +176,7 @@ def build_element(
     scroll_direction: str = "down",
     scroll_amount: int = 1,
     drag_target: str = "",
+    choices: Optional[list[dict]] = None,
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
 
@@ -199,8 +203,11 @@ def build_element(
     if ui_type == "drag_handle" and drag_target:
         element["drag_target"] = drag_target
 
-    if ui_type in ("dropdown", "radio", "checkbox") and expected_value:
-        element["expected_value"] = expected_value
+    if ui_type in ("dropdown", "radio", "checkbox"):
+        if expected_value:
+            element["expected_value"] = expected_value
+        if choices:
+            element["choices"] = choices
 
     return element
 

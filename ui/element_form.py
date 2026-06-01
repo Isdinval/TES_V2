@@ -7,10 +7,18 @@ Emits element_confirmed with a complete element dict.
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+    QComboBox, QPushButton, QFrame, QGroupBox, QSpinBox,
+    QTableWidget, QTableWidgetItem, QHeaderView
+)
+from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtGui import QFont, QColor
+=======
     QComboBox, QPushButton, QFrame, QGroupBox, QSpinBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
+>>>>>>> main
 
 
 UI_TYPE_ACTIONS = {
@@ -36,12 +44,17 @@ UI_TYPES = list(UI_TYPE_ACTIONS.keys())
 
 class ElementForm(QWidget):
     element_confirmed = pyqtSignal(dict)   # full element dict ready to add
+    sampling_toggled = pyqtSignal(bool)    # emitted when user starts/stops sampling click targets
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._bbox: dict | None = None
         self._source: str = "human"
         self._prior_correction: dict | None = None
+
+        self._choices: list[dict] = [] # [{"label": str, "x": float, "y": float}]
+        self._sampling_active = False
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -87,10 +100,51 @@ class ElementForm(QWidget):
         self._action = QComboBox()
         layout.addWidget(self._action)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+        # --- Multi-Choice / Targets Section ---
+        self._choices_group = QGroupBox("Options / Cibles")
+        choices_layout = QVBoxLayout(self._choices_group)
+
+        h_choices = QHBoxLayout()
+        self._choice_input = QLineEdit()
+        self._choice_input.setPlaceholderText("Label de l'option")
+        self._choice_input.returnPressed.connect(self._add_choice)
+        h_choices.addWidget(self._choice_input)
+
+        self._add_choice_btn = QPushButton("➕")
+        self._add_choice_btn.setFixedWidth(30)
+        self._add_choice_btn.clicked.connect(self._add_choice)
+        h_choices.addWidget(self._add_choice_btn)
+        choices_layout.addLayout(h_choices)
+
+        self._choices_table = QTableWidget(0, 3)
+        self._choices_table.setHorizontalHeaderLabels(["Label", "Cible", "🗑"])
+        self._choices_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._choices_table.setColumnWidth(1, 40)
+        self._choices_table.setColumnWidth(2, 30)
+        self._choices_table.setFixedHeight(120)
+        choices_layout.addWidget(self._choices_table)
+
+        self._sample_btn = QPushButton("🎯 Enregistrer les points de clic")
+        self._sample_btn.setCheckable(True)
+        self._sample_btn.clicked.connect(self._toggle_sampling)
+        self._sample_btn.setStyleSheet(
+            "QPushButton:checked { background: #7a7a20; color: white; }"
+        )
+        choices_layout.addWidget(self._sample_btn)
+
+        layout.addWidget(self._choices_group)
+
+        # expected_value (fallback simple)
+        self._expected_value_label = QLabel("Expected value (simple)")
+        self._expected_value_input = QLineEdit()
+        self._expected_value_input.setPlaceholderText("ex: France")
+=======
         # expected_value (dropdown / radio / checkbox)
         self._expected_value_label = QLabel("Expected value")
         self._expected_value_input = QLineEdit()
         self._expected_value_input.setPlaceholderText("ex: France ou true")
+>>>>>>> main
         layout.addWidget(self._expected_value_label)
         layout.addWidget(self._expected_value_input)
 
@@ -160,6 +214,10 @@ class ElementForm(QWidget):
 
         # Conditional visibility
         is_val_type = ui_type in ("dropdown", "radio", "checkbox")
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+        self._choices_group.setVisible(is_val_type)
+=======
+>>>>>>> main
         self._expected_value_label.setVisible(is_val_type)
         self._expected_value_input.setVisible(is_val_type)
 
@@ -173,6 +231,67 @@ class ElementForm(QWidget):
         self._drag_target_label.setVisible(is_drag)
         self._drag_target_input.setVisible(is_drag)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+    def _add_choice(self):
+        txt = self._choice_input.text().strip()
+        if not txt:
+            return
+        self._choices.append({"label": txt, "x": None, "y": None})
+        self._choice_input.clear()
+        self._refresh_choices_table()
+
+    def _refresh_choices_table(self):
+        self._choices_table.setRowCount(0)
+        for i, c in enumerate(self._choices):
+            self._choices_table.insertRow(i)
+            self._choices_table.setItem(i, 0, QTableWidgetItem(c["label"]))
+
+            target_status = "✅" if c["x"] is not None else "—"
+            item = QTableWidgetItem(target_status)
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._choices_table.setItem(i, 1, item)
+
+            del_btn = QPushButton("✖")
+            del_btn.setFixedWidth(24)
+            del_btn.setStyleSheet("color: #cc4444; background: transparent; border: none;")
+            del_btn.clicked.connect(self._make_delete_choice_handler(i))
+            self._choices_table.setCellWidget(i, 2, del_btn)
+
+    def _make_delete_choice_handler(self, idx: int):
+        def handler():
+            if 0 <= idx < len(self._choices):
+                self._choices.pop(idx)
+                self._refresh_choices_table()
+        return handler
+
+    def _toggle_sampling(self, checked: bool):
+        self._sampling_active = checked
+        self.sampling_toggled.emit(checked)
+        if checked:
+            self._status.setText("Mode cible : clique sur le screenshot pour chaque option")
+        else:
+            self._status.setText(f"Source: {self._source}")
+
+    def add_sampled_point(self, point: dict):
+        """Called from outside when a point is clicked on canvas."""
+        # Assign to the first choice that doesn't have a target
+        for c in self._choices:
+            if c["x"] is None:
+                c["x"] = point["x"]
+                c["y"] = point["y"]
+                self._refresh_choices_table()
+                break
+
+        # If all choices have targets, stop sampling automatically
+        if all(c["x"] is not None for c in self._choices):
+            self._sample_btn.setChecked(False)
+            self._toggle_sampling(False)
+
+    def get_sampled_points(self) -> list[dict]:
+        return [{"x": c["x"], "y": c["y"]} for c in self._choices if c["x"] is not None]
+
+=======
+>>>>>>> main
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -182,6 +301,7 @@ class ElementForm(QWidget):
         self._bbox = bbox
         self._source = source
         self._prior_correction = correction
+        self._choices = []
 
         b = bbox
         self._bbox_label.setText(
@@ -189,7 +309,6 @@ class ElementForm(QWidget):
         )
 
         if correction:
-            # Pre-fill from corrections_store
             self._key_input.setText(correction.get("logical_key", ""))
 
             ui_type = correction.get("ui_type", "")
@@ -197,15 +316,21 @@ class ElementForm(QWidget):
             if idx >= 0:
                 self._ui_type.setCurrentIndex(idx)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
             # Action list is already updated by _on_ui_type_changed via setCurrentIndex above
+>>>>>>> main
             action = correction.get("action", "")
             idx = self._action.findText(action)
             if idx >= 0:
                 self._action.setCurrentIndex(idx)
 
             self._path_input.setText(correction.get("path", ""))
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
 
             # Additional fields
+>>>>>>> main
             self._expected_value_input.setText(correction.get("expected_value", ""))
 
             scroll_cfg = correction.get("scroll_config", {})
@@ -214,9 +339,17 @@ class ElementForm(QWidget):
 
             self._drag_target_input.setText(correction.get("drag_target", ""))
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+            # Load choices
+            self._choices = list(correction.get("choices", []))
+            self._refresh_choices_table()
+
+=======
+>>>>>>> main
             self._correction_label.setText("⚡ Pré-rempli depuis une correction précédente")
             self._status.setText(f"Source: {source} — corrigé préc.")
         else:
+            self._refresh_choices_table()
             self._correction_label.setText("")
             self._status.setText(f"Source: {source}")
 
@@ -231,6 +364,9 @@ class ElementForm(QWidget):
             return
         self._key_input.setStyleSheet("")
 
+        # Filter choices to those with labels
+        valid_choices = [c for c in self._choices if c["label"]]
+
         from core.mapping_store import build_element
         element = build_element(
             bbox_relative=self._bbox,
@@ -243,6 +379,10 @@ class ElementForm(QWidget):
             scroll_direction=self._scroll_dir_input.currentText(),
             scroll_amount=self._scroll_amount_input.value(),
             drag_target=self._drag_target_input.text().strip(),
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+            choices=valid_choices if valid_choices else None,
+=======
+>>>>>>> main
         )
         self.element_confirmed.emit(element)
         self._clear()
@@ -251,11 +391,16 @@ class ElementForm(QWidget):
         self._bbox = None
         self._source = "human"
         self._prior_correction = None
+        self._choices = []
+        self._refresh_choices_table()
         self._bbox_label.setText("—")
         self._key_input.clear()
         self._key_input.setStyleSheet("")
         self._ui_type.setCurrentIndex(0)
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
         # _on_ui_type_changed will reset action and other fields visibility
+>>>>>>> main
         self._expected_value_input.clear()
         self._scroll_dir_input.setCurrentIndex(1) # down
         self._scroll_amount_input.setValue(1)
@@ -264,3 +409,5 @@ class ElementForm(QWidget):
         self._correction_label.setText("")
         self._status.setText("Dessine ou clique un élément sur le screenshot")
         self._add_btn.setEnabled(False)
+        self._sample_btn.setChecked(False)
+        self.sampling_toggled.emit(False)
