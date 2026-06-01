@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
         try:
             elements = mapping_store.load_session(self._app_name(), self._screen_name())
             self._mapping_list.load_from_elements(elements)
-            self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+            self._canvas.set_mapped_elements(self._mapping_list.get_elements())
             self._export_btn.setEnabled(len(elements) > 0)
             if elements:
                 self._statusbar.showMessage(
@@ -332,7 +332,7 @@ class MainWindow(QMainWindow):
 
     def _on_element_confirmed(self, element: dict):
         self._mapping_list.add_element(element)
-        self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+        self._canvas.set_mapped_elements(self._mapping_list.get_elements())
         self._export_btn.setEnabled(True)
         self._statusbar.showMessage(
             f"[{self._app_name()}::{self._screen_name()}] "
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         )
 
     def _on_element_deleted(self, _idx: int):
-        self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+        self._canvas.set_mapped_elements(self._mapping_list.get_elements())
         self._export_btn.setEnabled(len(self._mapping_list.get_elements()) > 0)
 
     # ------------------------------------------------------------------

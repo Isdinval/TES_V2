@@ -7,7 +7,7 @@ Emits signals to the main window.
 """
 
 from __future__ import annotations
-from PyQt6.QtWidgets import QWidget, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QLabel, QSizePolicy, QToolTip
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QPixmap, QImage, QFont, QCursor
 )
@@ -40,7 +40,7 @@ class CanvasView(QWidget):
         self._img_h: int = 1
 
         self._candidates: list[dict] = []   # [{x,y,w,h,description,confidence,interactable}]
-        self._mapped_bboxes: list[dict] = []  # already mapped elements bboxes
+        self._mapped_elements: list[dict] = []  # already mapped elements
         self._selected_idx: int | None = None
         self._hover_idx: int | None = None
 
@@ -60,7 +60,7 @@ class CanvasView(QWidget):
         qimg = QImage(data, self._img_w, self._img_h, self._img_w * 3, QImage.Format.Format_RGB888)
         self._pixmap = QPixmap.fromImage(qimg)
         self._candidates = []
-        self._mapped_bboxes = []
+        self._mapped_elements = []
         self._selected_idx = None
         self._hover_idx = None
         self.update()
@@ -70,9 +70,9 @@ class CanvasView(QWidget):
         self._selected_idx = None
         self.update()
 
-    def set_mapped_bboxes(self, bboxes: list[dict]) -> None:
-        """Pass list of bbox_relative dicts for already-mapped elements."""
-        self._mapped_bboxes = bboxes
+    def set_mapped_elements(self, elements: list[dict]) -> None:
+        """Pass list of full element dicts for already-mapped elements."""
+        self._mapped_elements = elements
         self.update()
 
     def clear_selection(self) -> None:
@@ -117,6 +117,15 @@ class CanvasView(QWidget):
                 return i
         return None
 
+    def _hit_mapped(self, pos: QPoint) -> dict | None:
+        """Returns the first mapped element that contains the screen position."""
+        for el in self._mapped_elements:
+            bbox = el.get("bbox_relative", {})
+            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
+            if rect.contains(pos):
+                return el
+        return None
+
     # ------------------------------------------------------------------
     # Mouse events
     # ------------------------------------------------------------------
@@ -146,6 +155,14 @@ class CanvasView(QWidget):
             self.update()
         else:
             self._hover_idx = self._hit_candidate(event.pos())
+
+            # Tooltip for mapped elements
+            mapped = self._hit_mapped(event.pos())
+            if mapped:
+                QToolTip.showText(event.globalPosition().toPoint(), mapped.get("logical_key", ""), self)
+            else:
+                QToolTip.hideText()
+
             self.update()
 
     def mouseReleaseEvent(self, event):
@@ -208,11 +225,12 @@ class CanvasView(QWidget):
         )
         painter.drawPixmap(ir.x(), ir.y(), scaled)
 
-        # Draw mapped bboxes (green)
+        # Draw mapped elements (green)
         pen = QPen(COLOR_MAPPED, 2)
         painter.setPen(pen)
-        for bbox in self._mapped_bboxes:
-            rect = self._rel_to_screen(bbox["x"], bbox["y"], bbox["w"], bbox["h"])
+        for el in self._mapped_elements:
+            bbox = el.get("bbox_relative", {})
+            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
             painter.fillRect(rect, QColor(50, 205, 50, 30))
             painter.drawRect(rect)
 

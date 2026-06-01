@@ -7,41 +7,31 @@ Emits element_confirmed with a complete element dict.
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QComboBox, QPushButton, QFrame, QGroupBox
+    QComboBox, QPushButton, QFrame, QGroupBox, QSpinBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont
 
 
-UI_TYPES = [
-    "text_input",
-    "button",
-    "checkbox",
-    "radio",
-    "dropdown",
-    "label",
-    "icon",
-    "tab",
-    "menu_item",
-    "toggle",
-    "date_picker",
-    "table_cell",
-    "other",
-]
+UI_TYPE_ACTIONS = {
+    "button": ["click", "double_click", "right_click", "hover"],
+    "text_input": ["click_then_type", "click", "triple_click_then_type"],
+    "checkbox": ["check", "uncheck", "click"],
+    "radio": ["click", "select"],
+    "dropdown": ["select", "click"],
+    "label": ["hover", "none"],
+    "icon": ["click", "double_click", "right_click", "hover"],
+    "tab": ["click", "hover"],
+    "menu_item": ["click", "hover"],
+    "toggle": ["click"],
+    "date_picker": ["click", "click_then_type", "select"],
+    "table_cell": ["click", "double_click", "click_then_type", "none"],
+    "scroll_area": ["scroll"],
+    "drag_handle": ["drag"],
+    "other": ["click", "hover", "none"],
+}
 
-ACTIONS = [
-    "click",
-    "click_then_type",
-    "double_click",
-    "right_click",
-    "check",
-    "uncheck",
-    "select",
-    "hover",
-    "scroll",
-    "drag",
-    "none",
-]
+UI_TYPES = list(UI_TYPE_ACTIONS.keys())
 
 
 class ElementForm(QWidget):
@@ -89,13 +79,39 @@ class ElementForm(QWidget):
         layout.addWidget(QLabel("UI Type *"))
         self._ui_type = QComboBox()
         self._ui_type.addItems(UI_TYPES)
+        self._ui_type.currentTextChanged.connect(self._on_ui_type_changed)
         layout.addWidget(self._ui_type)
 
         # action
         layout.addWidget(QLabel("Action *"))
         self._action = QComboBox()
-        self._action.addItems(ACTIONS)
         layout.addWidget(self._action)
+
+        # expected_value (dropdown / radio / checkbox)
+        self._expected_value_label = QLabel("Expected value")
+        self._expected_value_input = QLineEdit()
+        self._expected_value_input.setPlaceholderText("ex: France ou true")
+        layout.addWidget(self._expected_value_label)
+        layout.addWidget(self._expected_value_input)
+
+        # scroll fields (scroll_area)
+        self._scroll_dir_label = QLabel("Scroll Direction")
+        self._scroll_dir_input = QComboBox()
+        self._scroll_dir_input.addItems(["up", "down", "left", "right"])
+        self._scroll_amount_label = QLabel("Scroll Amount")
+        self._scroll_amount_input = QSpinBox()
+        self._scroll_amount_input.setRange(1, 100)
+        layout.addWidget(self._scroll_dir_label)
+        layout.addWidget(self._scroll_dir_input)
+        layout.addWidget(self._scroll_amount_label)
+        layout.addWidget(self._scroll_amount_input)
+
+        # drag fields (drag_handle)
+        self._drag_target_label = QLabel("Drag Target (Logical Key)")
+        self._drag_target_input = QLineEdit()
+        self._drag_target_input.setPlaceholderText("ex: target_zone")
+        layout.addWidget(self._drag_target_label)
+        layout.addWidget(self._drag_target_input)
 
         # path
         layout.addWidget(QLabel("Path fonctionnel"))
@@ -132,6 +148,31 @@ class ElementForm(QWidget):
         btn_layout.addWidget(self._clear_btn)
         layout.addLayout(btn_layout)
 
+        # Initial refresh
+        self._on_ui_type_changed(self._ui_type.currentText())
+
+    def _on_ui_type_changed(self, ui_type: str):
+        # Update actions
+        self._action.clear()
+        actions = UI_TYPE_ACTIONS.get(ui_type, ["none"])
+        self._action.addItems(actions)
+        self._action.setCurrentIndex(0)
+
+        # Conditional visibility
+        is_val_type = ui_type in ("dropdown", "radio", "checkbox")
+        self._expected_value_label.setVisible(is_val_type)
+        self._expected_value_input.setVisible(is_val_type)
+
+        is_scroll = ui_type == "scroll_area"
+        self._scroll_dir_label.setVisible(is_scroll)
+        self._scroll_dir_input.setVisible(is_scroll)
+        self._scroll_amount_label.setVisible(is_scroll)
+        self._scroll_amount_input.setVisible(is_scroll)
+
+        is_drag = ui_type == "drag_handle"
+        self._drag_target_label.setVisible(is_drag)
+        self._drag_target_input.setVisible(is_drag)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -150,13 +191,29 @@ class ElementForm(QWidget):
         if correction:
             # Pre-fill from corrections_store
             self._key_input.setText(correction.get("logical_key", ""))
-            idx = self._ui_type.findText(correction.get("ui_type", ""))
+
+            ui_type = correction.get("ui_type", "")
+            idx = self._ui_type.findText(ui_type)
             if idx >= 0:
                 self._ui_type.setCurrentIndex(idx)
-            idx = self._action.findText(correction.get("action", ""))
+
+            # Action list is already updated by _on_ui_type_changed via setCurrentIndex above
+            action = correction.get("action", "")
+            idx = self._action.findText(action)
             if idx >= 0:
                 self._action.setCurrentIndex(idx)
+
             self._path_input.setText(correction.get("path", ""))
+
+            # Additional fields
+            self._expected_value_input.setText(correction.get("expected_value", ""))
+
+            scroll_cfg = correction.get("scroll_config", {})
+            self._scroll_dir_input.setCurrentText(scroll_cfg.get("direction", "down"))
+            self._scroll_amount_input.setValue(scroll_cfg.get("amount", 1))
+
+            self._drag_target_input.setText(correction.get("drag_target", ""))
+
             self._correction_label.setText("⚡ Pré-rempli depuis une correction précédente")
             self._status.setText(f"Source: {source} — corrigé préc.")
         else:
@@ -182,6 +239,10 @@ class ElementForm(QWidget):
             action=self._action.currentText(),
             path=self._path_input.text().strip(),
             source=self._source,
+            expected_value=self._expected_value_input.text().strip(),
+            scroll_direction=self._scroll_dir_input.currentText(),
+            scroll_amount=self._scroll_amount_input.value(),
+            drag_target=self._drag_target_input.text().strip(),
         )
         self.element_confirmed.emit(element)
         self._clear()
@@ -194,7 +255,11 @@ class ElementForm(QWidget):
         self._key_input.clear()
         self._key_input.setStyleSheet("")
         self._ui_type.setCurrentIndex(0)
-        self._action.setCurrentIndex(0)
+        # _on_ui_type_changed will reset action and other fields visibility
+        self._expected_value_input.clear()
+        self._scroll_dir_input.setCurrentIndex(1) # down
+        self._scroll_amount_input.setValue(1)
+        self._drag_target_input.clear()
         self._path_input.clear()
         self._correction_label.setText("")
         self._status.setText("Dessine ou clique un élément sur le screenshot")
