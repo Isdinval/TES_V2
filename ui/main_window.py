@@ -173,10 +173,12 @@ class MainWindow(QMainWindow):
         self._canvas.candidate_selected.connect(self._on_candidate_selected)
         self._canvas.bbox_drawn.connect(self._on_bbox_drawn)
         self._canvas.selection_cleared.connect(self._on_selection_cleared)
+        self._canvas.point_sampled.connect(self._on_point_sampled)
         main_splitter.addWidget(self._canvas)
 
         self._form = ElementForm()
         self._form.element_confirmed.connect(self._on_element_confirmed)
+        self._form.sampling_toggled.connect(self._on_sampling_toggled)
         self._form.setMinimumWidth(260)
         self._form.setMaximumWidth(340)
         main_splitter.addWidget(self._form)
@@ -257,7 +259,7 @@ class MainWindow(QMainWindow):
         try:
             elements = mapping_store.load_session(self._app_name(), self._screen_name())
             self._mapping_list.load_from_elements(elements)
-            self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+            self._canvas.set_mapped_elements(self._mapping_list.get_elements())
             self._export_btn.setEnabled(len(elements) > 0)
             if elements:
                 self._statusbar.showMessage(
@@ -326,21 +328,34 @@ class MainWindow(QMainWindow):
     def _on_selection_cleared(self):
         pass
 
+    def _on_point_sampled(self, point: dict):
+        self._form.add_sampled_point(point)
+        # Update canvas to show the dots we just added
+        self._canvas.set_sampled_points(self._form.get_sampled_points())
+
     # ------------------------------------------------------------------
     # Form → List wiring
     # ------------------------------------------------------------------
 
     def _on_element_confirmed(self, element: dict):
         self._mapping_list.add_element(element)
-        self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+        self._canvas.set_mapped_elements(self._mapping_list.get_elements())
         self._export_btn.setEnabled(True)
         self._statusbar.showMessage(
             f"[{self._app_name()}::{self._screen_name()}] "
             f"Élément '{element['logical_key']}' ajouté"
         )
 
+    def _on_sampling_toggled(self, enabled: bool):
+        self._canvas.set_sampling_mode(enabled)
+        if enabled:
+            # Show existing points if any
+            self._canvas.set_sampled_points(self._form.get_sampled_points())
+        else:
+            self._canvas.set_sampled_points([])
+
     def _on_element_deleted(self, _idx: int):
-        self._canvas.set_mapped_bboxes(self._mapping_list.get_bboxes())
+        self._canvas.set_mapped_elements(self._mapping_list.get_elements())
         self._export_btn.setEnabled(len(self._mapping_list.get_elements()) > 0)
 
     # ------------------------------------------------------------------

@@ -3,11 +3,12 @@ CanvasView: displays the screenshot, overlays YOLO bbox candidates,
 allows the user to:
   - click a candidate bbox to select it
   - click+drag to draw a new bbox manually
+  - sample points for specific click targets (sampling mode)
 Emits signals to the main window.
 """
 
 from __future__ import annotations
-from PyQt6.QtWidgets import QWidget, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QLabel, QSizePolicy, QToolTip
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QPixmap, QImage, QFont, QCursor
 )
@@ -21,12 +22,14 @@ COLOR_CANDIDATE_HOVER = QColor(100, 149, 237, 220)
 COLOR_SELECTED = QColor(255, 165, 0, 220)       # orange
 COLOR_MAPPED = QColor(50, 205, 50, 180)         # green
 COLOR_DRAW = QColor(255, 69, 0, 220)            # red-orange for live draw
+COLOR_SAMPLED = QColor(255, 255, 0, 220)        # yellow for sampled targets
 
 
 class CanvasView(QWidget):
     # Signals
     candidate_selected = pyqtSignal(dict)   # emitted when user clicks a candidate
     bbox_drawn = pyqtSignal(dict)           # emitted when user finishes drawing a bbox
+    point_sampled = pyqtSignal(dict)        # emitted in sampling mode: {"x", "y"} relative
     selection_cleared = pyqtSignal()
 
     def __init__(self, parent=None):
@@ -40,9 +43,13 @@ class CanvasView(QWidget):
         self._img_h: int = 1
 
         self._candidates: list[dict] = []   # [{x,y,w,h,description,confidence,interactable}]
-        self._mapped_bboxes: list[dict] = []  # already mapped elements bboxes
+        self._mapped_elements: list[dict] = []  # already mapped elements
         self._selected_idx: int | None = None
         self._hover_idx: int | None = None
+
+        # Sampling state
+        self._sampling_mode = False
+        self._sampled_points: list[dict] = [] # list of {"x", "y"} relative
 
         # Draw state
         self._drawing = False
@@ -60,9 +67,10 @@ class CanvasView(QWidget):
         qimg = QImage(data, self._img_w, self._img_h, self._img_w * 3, QImage.Format.Format_RGB888)
         self._pixmap = QPixmap.fromImage(qimg)
         self._candidates = []
-        self._mapped_bboxes = []
+        self._mapped_elements = []
         self._selected_idx = None
         self._hover_idx = None
+        self._sampled_points = []
         self.update()
 
     def set_candidates(self, candidates: list[dict]) -> None:
@@ -70,13 +78,27 @@ class CanvasView(QWidget):
         self._selected_idx = None
         self.update()
 
-    def set_mapped_bboxes(self, bboxes: list[dict]) -> None:
-        """Pass list of bbox_relative dicts for already-mapped elements."""
-        self._mapped_bboxes = bboxes
+    def set_mapped_elements(self, elements: list[dict]) -> None:
+        """Pass list of full element dicts for already-mapped elements."""
+        self._mapped_elements = elements
         self.update()
 
     def clear_selection(self) -> None:
         self._selected_idx = None
+        self.update()
+
+    def set_sampling_mode(self, enabled: bool) -> None:
+        self._sampling_mode = enabled
+        if enabled:
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        else:
+            self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self._sampled_points = []
+        self.update()
+
+    def set_sampled_points(self, points: list[dict]) -> None:
+        """Update the list of points to display (relative coords)."""
+        self._sampled_points = points
         self.update()
 
     # ------------------------------------------------------------------
@@ -96,7 +118,7 @@ class CanvasView(QWidget):
         y = (self.height() - scaled.height()) // 2
         return QRect(x, y, scaled.width(), scaled.height())
 
-    def _rel_to_screen(self, rx: float, ry: float, rw: float, rh: float) -> QRect:
+    def _rel_to_screen(self, rx: float, ry: float, rw: float = 0, rh: float = 0) -> QRect:
         ir = self._image_rect()
         x = ir.x() + int(rx * ir.width())
         y = ir.y() + int(ry * ir.height())
@@ -117,12 +139,26 @@ class CanvasView(QWidget):
                 return i
         return None
 
+    def _hit_mapped(self, pos: QPoint) -> dict | None:
+        """Returns the first mapped element that contains the screen position."""
+        for el in self._mapped_elements:
+            bbox = el.get("bbox_relative", {})
+            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
+            if rect.contains(pos):
+                return el
+        return None
+
     # ------------------------------------------------------------------
     # Mouse events
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        if self._sampling_mode:
+            rx, ry = self._screen_to_rel(event.pos())
+            self.point_sampled.emit({"x": round(rx, 4), "y": round(ry, 4)})
             return
 
         hit = self._hit_candidate(event.pos())
@@ -146,6 +182,14 @@ class CanvasView(QWidget):
             self.update()
         else:
             self._hover_idx = self._hit_candidate(event.pos())
+
+            # Tooltip for mapped elements
+            mapped = self._hit_mapped(event.pos())
+            if mapped:
+                QToolTip.showText(event.globalPosition().toPoint(), mapped.get("logical_key", ""), self)
+            else:
+                QToolTip.hideText()
+
             self.update()
 
     def mouseReleaseEvent(self, event):
@@ -208,11 +252,12 @@ class CanvasView(QWidget):
         )
         painter.drawPixmap(ir.x(), ir.y(), scaled)
 
-        # Draw mapped bboxes (green)
+        # Draw mapped elements (green)
         pen = QPen(COLOR_MAPPED, 2)
         painter.setPen(pen)
-        for bbox in self._mapped_bboxes:
-            rect = self._rel_to_screen(bbox["x"], bbox["y"], bbox["w"], bbox["h"])
+        for el in self._mapped_elements:
+            bbox = el.get("bbox_relative", {})
+            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
             painter.fillRect(rect, QColor(50, 205, 50, 30))
             painter.drawRect(rect)
 
@@ -239,6 +284,13 @@ class CanvasView(QWidget):
                 label = f"{c.get('confidence', 0):.2f}"
                 painter.setPen(color)
                 painter.drawText(rect.x() + 2, rect.y() - 3, label)
+
+        # Draw sampled points
+        painter.setPen(QPen(COLOR_SAMPLED, 2))
+        painter.setBrush(COLOR_SAMPLED)
+        for p in self._sampled_points:
+            pos = self._rel_to_screen(p["x"], p["y"])
+            painter.drawEllipse(pos.topLeft(), 5, 5)
 
         # Live draw rect
         if self._drawing and self._draw_start and self._draw_end:

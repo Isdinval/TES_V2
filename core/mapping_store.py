@@ -20,7 +20,7 @@ def _context_key(app_name: str, screen_name: str) -> str:
 def load_corrections() -> dict:
     """
     Returns the full corrections store:
-    { "app::screen": { stable_id: {logical_key, ui_type, action, path, bbox_relative, source} } }
+    { "app::screen": { stable_id: {logical_key, ui_type, action, path, bbox_relative, source, ...} } }
     """
     if os.path.exists(CORRECTIONS_FILE):
         with open(CORRECTIONS_FILE, "r", encoding="utf-8") as f:
@@ -59,7 +59,8 @@ def update_corrections(
     for el in elements:
         sid = el.get("stable_id")
         if sid:
-            corrections[key][sid] = {
+            # Store all relevant fields for session restoration
+            data = {
                 "logical_key": el.get("logical_key", ""),
                 "ui_type": el.get("ui_type", ""),
                 "action": el.get("action", ""),
@@ -67,6 +68,18 @@ def update_corrections(
                 "bbox_relative": el.get("bbox_relative", {}),
                 "source": el.get("source", "human"),
             }
+            # Add optional fields if they exist
+            if "expected_value" in el:
+                data["expected_value"] = el["expected_value"]
+            if "scroll_config" in el:
+                data["scroll_config"] = el["scroll_config"]
+            if "drag_target" in el:
+                data["drag_target"] = el["drag_target"]
+            if "choices" in el:
+                data["choices"] = el["choices"]
+
+            corrections[key][sid] = data
+
     save_corrections(corrections)
 
 
@@ -87,6 +100,8 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
         bbox = data.get("bbox_relative", {})
         if not bbox:
             continue
+
+        scroll_cfg = data.get("scroll_config", {})
         element = build_element(
             bbox_relative=bbox,
             logical_key=data.get("logical_key", ""),
@@ -94,6 +109,11 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             action=data.get("action", ""),
             path=data.get("path", ""),
             source=data.get("source", "human"),
+            expected_value=data.get("expected_value", ""),
+            scroll_direction=scroll_cfg.get("direction", "down"),
+            scroll_amount=scroll_cfg.get("amount", 1),
+            drag_target=data.get("drag_target", ""),
+            choices=data.get("choices", []),
         )
         elements.append(element)
     return elements
@@ -121,6 +141,30 @@ def lookup_correction(
     return None
 
 
+def compute_click_target(bbox_relative: dict, ui_type: str, extra_params: Optional[dict] = None) -> Optional[dict]:
+    """
+    Calcule le point de clic optimal selon le type d'UI.
+    - checkbox / radio : décalé à gauche (15% w)
+    - scroll_area : aucun (None)
+    - Autres : centre (50% w, 50% h)
+    """
+    bx = bbox_relative
+    if ui_type == "scroll_area":
+        return None
+
+    if ui_type in ("checkbox", "radio"):
+        return {
+            "x": round(bx["x"] + bx["w"] * 0.15, 4),
+            "y": round(bx["y"] + bx["h"] * 0.5, 4),
+        }
+
+    # Default: center
+    return {
+        "x": round(bx["x"] + bx["w"] / 2, 4),
+        "y": round(bx["y"] + bx["h"] / 2, 4),
+    }
+
+
 def build_element(
     bbox_relative: dict,
     logical_key: str,
@@ -128,23 +172,44 @@ def build_element(
     action: str,
     path: str,
     source: str,
+    expected_value: str = "",
+    scroll_direction: str = "down",
+    scroll_amount: int = 1,
+    drag_target: str = "",
+    choices: Optional[list[dict]] = None,
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
-    bx = bbox_relative
-    click_target = {
-        "x": round(bx["x"] + bx["w"] / 2, 4),
-        "y": round(bx["y"] + bx["h"] / 2, 4),
-    }
-    return {
+
+    element = {
         "stable_id": sid,
         "logical_key": logical_key,
         "ui_type": ui_type,
         "action": action,
         "path": path,
         "bbox_relative": bbox_relative,
-        "click_target": click_target,
         "source": source,
     }
+
+    click_target = compute_click_target(bbox_relative, ui_type)
+    if click_target is not None:
+        element["click_target"] = click_target
+
+    if ui_type == "scroll_area":
+        element["scroll_config"] = {
+            "direction": scroll_direction,
+            "amount": scroll_amount
+        }
+
+    if ui_type == "drag_handle" and drag_target:
+        element["drag_target"] = drag_target
+
+    if ui_type in ("dropdown", "radio", "checkbox"):
+        if expected_value:
+            element["expected_value"] = expected_value
+        if choices:
+            element["choices"] = choices
+
+    return element
 
 
 def export_mapping(
