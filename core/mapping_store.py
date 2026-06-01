@@ -8,10 +8,19 @@ from core.stable_id import compute_stable_id
 CORRECTIONS_FILE = "corrections_store.json"
 
 
+# ------------------------------------------------------------------
+# Low-level store access
+# ------------------------------------------------------------------
+
+def _context_key(app_name: str, screen_name: str) -> str:
+    """Composite key used as top-level dict key in corrections_store.json."""
+    return f"{app_name.strip()}::{screen_name.strip()}"
+
+
 def load_corrections() -> dict:
     """
-    Returns {stable_id: {logical_key, ui_type, action, path}}
-    Persists human-validated mappings across runs.
+    Returns the full corrections store:
+    { "app::screen": { stable_id: {logical_key, ui_type, action, path, bbox_relative, source} } }
     """
     if os.path.exists(CORRECTIONS_FILE):
         with open(CORRECTIONS_FILE, "r", encoding="utf-8") as f:
@@ -24,32 +33,89 @@ def save_corrections(corrections: dict) -> None:
         json.dump(corrections, f, indent=2, ensure_ascii=False)
 
 
-def update_corrections(elements: list[dict]) -> None:
+def load_corrections_for(app_name: str, screen_name: str) -> dict:
     """
-    Merge human-validated elements into the corrections store.
-    Called on export.
+    Returns { stable_id: {...} } for a specific app/screen context.
+    Returns empty dict if context not found.
+    """
+    key = _context_key(app_name, screen_name)
+    return load_corrections().get(key, {})
+
+
+def update_corrections(
+    elements: list[dict],
+    app_name: str,
+    screen_name: str,
+) -> None:
+    """
+    Merge human-validated elements into the corrections store
+    under the correct app::screen context.
     """
     corrections = load_corrections()
+    key = _context_key(app_name, screen_name)
+    if key not in corrections:
+        corrections[key] = {}
+
     for el in elements:
         sid = el.get("stable_id")
         if sid:
-            corrections[sid] = {
+            corrections[key][sid] = {
                 "logical_key": el.get("logical_key", ""),
                 "ui_type": el.get("ui_type", ""),
                 "action": el.get("action", ""),
                 "path": el.get("path", ""),
+                "bbox_relative": el.get("bbox_relative", {}),
+                "source": el.get("source", "human"),
             }
     save_corrections(corrections)
 
 
-def lookup_correction(bbox_relative: dict) -> Optional[dict]:
+# ------------------------------------------------------------------
+# Session restore
+# ------------------------------------------------------------------
+
+def load_session(app_name: str, screen_name: str) -> list[dict]:
     """
-    Given a bbox, check if we have a prior human correction for it.
+    Reconstruit la liste des éléments depuis corrections_store.json
+    pour un contexte app/screen donné.
+    Appelé après capture pour restaurer les éléments déjà mappés.
+    Entrées sans bbox_relative (ancien format) sont ignorées.
+    """
+    context = load_corrections_for(app_name, screen_name)
+    elements = []
+    for sid, data in context.items():
+        bbox = data.get("bbox_relative", {})
+        if not bbox:
+            continue
+        element = build_element(
+            bbox_relative=bbox,
+            logical_key=data.get("logical_key", ""),
+            ui_type=data.get("ui_type", ""),
+            action=data.get("action", ""),
+            path=data.get("path", ""),
+            source=data.get("source", "human"),
+        )
+        elements.append(element)
+    return elements
+
+
+# ------------------------------------------------------------------
+# Element helpers
+# ------------------------------------------------------------------
+
+def lookup_correction(
+    bbox_relative: dict,
+    app_name: str,
+    screen_name: str,
+) -> Optional[dict]:
+    """
+    Check if we have a prior human correction for this bbox
+    in the given app/screen context.
     Returns the correction dict or None.
     """
     sid = compute_stable_id(bbox_relative)
-    corrections = load_corrections()
-    result = corrections.get(sid)
+    context = load_corrections_for(app_name, screen_name)
+    result = context.get(sid)
     if result:
         return {"stable_id": sid, **result}
     return None
@@ -99,4 +165,4 @@ def export_mapping(
     }
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
-    update_corrections(elements)
+    update_corrections(elements, app_name, screen_name)
