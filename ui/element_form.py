@@ -7,11 +7,18 @@ Emits element_confirmed with a complete element dict.
 from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
     QComboBox, QPushButton, QFrame, QGroupBox, QSpinBox,
     QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QFont, QColor
+=======
+    QComboBox, QPushButton, QFrame, QGroupBox, QSpinBox
+)
+from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtGui import QFont
+>>>>>>> main
 
 
 UI_TYPE_ACTIONS = {
@@ -93,6 +100,7 @@ class ElementForm(QWidget):
         self._action = QComboBox()
         layout.addWidget(self._action)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
         # --- Multi-Choice / Targets Section ---
         self._choices_group = QGroupBox("Options / Cibles")
         choices_layout = QVBoxLayout(self._choices_group)
@@ -131,6 +139,12 @@ class ElementForm(QWidget):
         self._expected_value_label = QLabel("Expected value (simple)")
         self._expected_value_input = QLineEdit()
         self._expected_value_input.setPlaceholderText("ex: France")
+=======
+        # expected_value (dropdown / radio / checkbox)
+        self._expected_value_label = QLabel("Expected value")
+        self._expected_value_input = QLineEdit()
+        self._expected_value_input.setPlaceholderText("ex: France ou true")
+>>>>>>> main
         layout.addWidget(self._expected_value_label)
         layout.addWidget(self._expected_value_input)
 
@@ -200,7 +214,10 @@ class ElementForm(QWidget):
 
         # Conditional visibility
         is_val_type = ui_type in ("dropdown", "radio", "checkbox")
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
         self._choices_group.setVisible(is_val_type)
+=======
+>>>>>>> main
         self._expected_value_label.setVisible(is_val_type)
         self._expected_value_input.setVisible(is_val_type)
 
@@ -214,6 +231,7 @@ class ElementForm(QWidget):
         self._drag_target_label.setVisible(is_drag)
         self._drag_target_input.setVisible(is_drag)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
     def _add_choice(self):
         txt = self._choice_input.text().strip()
         if not txt:
@@ -272,6 +290,8 @@ class ElementForm(QWidget):
     def get_sampled_points(self) -> list[dict]:
         return [{"x": c["x"], "y": c["y"]} for c in self._choices if c["x"] is not None]
 
+=======
+>>>>>>> main
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -296,12 +316,21 @@ class ElementForm(QWidget):
             if idx >= 0:
                 self._ui_type.setCurrentIndex(idx)
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
+            # Action list is already updated by _on_ui_type_changed via setCurrentIndex above
+>>>>>>> main
             action = correction.get("action", "")
             idx = self._action.findText(action)
             if idx >= 0:
                 self._action.setCurrentIndex(idx)
 
             self._path_input.setText(correction.get("path", ""))
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
+
+            # Additional fields
+>>>>>>> main
             self._expected_value_input.setText(correction.get("expected_value", ""))
 
             scroll_cfg = correction.get("scroll_config", {})
@@ -310,10 +339,13 @@ class ElementForm(QWidget):
 
             self._drag_target_input.setText(correction.get("drag_target", ""))
 
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
             # Load choices
             self._choices = list(correction.get("choices", []))
             self._refresh_choices_table()
 
+=======
+>>>>>>> main
             self._correction_label.setText("⚡ Pré-rempli depuis une correction précédente")
             self._status.setText(f"Source: {source} — corrigé préc.")
         else:
@@ -347,7 +379,10 @@ class ElementForm(QWidget):
             scroll_direction=self._scroll_dir_input.currentText(),
             scroll_amount=self._scroll_amount_input.value(),
             drag_target=self._drag_target_input.text().strip(),
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
             choices=valid_choices if valid_choices else None,
+=======
+>>>>>>> main
         )
         self.element_confirmed.emit(element)
         self._clear()
@@ -362,6 +397,10 @@ class ElementForm(QWidget):
         self._key_input.clear()
         self._key_input.setStyleSheet("")
         self._ui_type.setCurrentIndex(0)
+<<<<<<< feature/ui-mapping-enhancements-10846057040124289619
+=======
+        # _on_ui_type_changed will reset action and other fields visibility
+>>>>>>> main
         self._expected_value_input.clear()
         self._scroll_dir_input.setCurrentIndex(1) # down
         self._scroll_amount_input.setValue(1)
