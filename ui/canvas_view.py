@@ -21,6 +21,7 @@ COLOR_CANDIDATE = QColor(100, 149, 237, 160)   # cornflower blue, semi-transpare
 COLOR_CANDIDATE_HOVER = QColor(100, 149, 237, 220)
 COLOR_SELECTED = QColor(255, 165, 0, 220)       # orange
 COLOR_MAPPED = QColor(50, 205, 50, 180)         # green
+COLOR_NAVIGATION = QColor(255, 140, 0, 200)     # DarkOrange for nav buttons
 COLOR_DRAW = QColor(255, 69, 0, 220)            # red-orange for live draw
 COLOR_SAMPLED = QColor(255, 255, 0, 220)        # yellow for sampled targets
 
@@ -252,14 +253,34 @@ class CanvasView(QWidget):
         )
         painter.drawPixmap(ir.x(), ir.y(), scaled)
 
-        # Draw mapped elements (green)
-        pen = QPen(COLOR_MAPPED, 2)
-        painter.setPen(pen)
+        # Draw mapped elements (green or orange for navigation)
         for el in self._mapped_elements:
             bbox = el.get("bbox_relative", {})
             rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
-            painter.fillRect(rect, QColor(50, 205, 50, 30))
+
+            is_nav = "navigation_config" in el
+            base_color = COLOR_NAVIGATION if is_nav else COLOR_MAPPED
+
+            pen = QPen(base_color, 2)
+            painter.setPen(pen)
+            painter.fillRect(rect, QColor(base_color.red(), base_color.green(), base_color.blue(), 30))
             painter.drawRect(rect)
+
+            # Draw ALL click targets permanently (yellow circles)
+            painter.setPen(QPen(COLOR_SAMPLED, 1.5))
+            painter.setBrush(COLOR_SAMPLED)
+
+            # Main click target
+            target = el.get("click_target")
+            if target:
+                t_pos = self._rel_to_screen(target["x"], target["y"])
+                painter.drawEllipse(t_pos.topLeft(), 3, 3)
+
+            # Choice targets
+            for choice in el.get("choices", []):
+                if choice.get("x") is not None:
+                    c_pos = self._rel_to_screen(choice["x"], choice["y"])
+                    painter.drawEllipse(c_pos.topLeft(), 3, 3)
 
         # Draw candidates
         for i, c in enumerate(self._candidates):
@@ -285,7 +306,7 @@ class CanvasView(QWidget):
                 painter.setPen(color)
                 painter.drawText(rect.x() + 2, rect.y() - 3, label)
 
-        # Draw sampled points
+        # Draw currently sampling points (yellow circles)
         painter.setPen(QPen(COLOR_SAMPLED, 2))
         painter.setBrush(COLOR_SAMPLED)
         for p in self._sampled_points:

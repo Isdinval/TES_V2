@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
         self._app_input.setPlaceholderText("ex: orthokis")
         self._app_input.setFixedWidth(110)
         self._app_input.setToolTip("Nom du logiciel métier ciblé")
+        self._app_input.textChanged.connect(self._refresh_form_suggestions)
         toolbar.addWidget(self._app_input)
 
         toolbar.addWidget(QLabel("Écran:"))
@@ -207,6 +208,8 @@ class MainWindow(QMainWindow):
         self._statusbar.showMessage(
             "Renseigne App + Écran, puis clique sur Capturer"
         )
+
+        self._refresh_form_suggestions()
 
     # ------------------------------------------------------------------
     # Monitor management
@@ -345,6 +348,8 @@ class MainWindow(QMainWindow):
             f"[{self._app_name()}::{self._screen_name()}] "
             f"Élément '{element['logical_key']}' ajouté"
         )
+        # Refresh suggestions as a new screen might have been created (or context updated)
+        self._refresh_form_suggestions()
 
     def _on_sampling_toggled(self, enabled: bool):
         self._canvas.set_sampling_mode(enabled)
@@ -353,6 +358,10 @@ class MainWindow(QMainWindow):
             self._canvas.set_sampled_points(self._form.get_sampled_points())
         else:
             self._canvas.set_sampled_points([])
+
+    def _refresh_form_suggestions(self):
+        screens = mapping_store.get_all_screens_for_app(self._app_name())
+        self._form.set_screen_suggestions(screens)
 
     def _on_element_deleted(self, _idx: int):
         self._canvas.set_mapped_elements(self._mapping_list.get_elements())
@@ -399,5 +408,6 @@ class MainWindow(QMainWindow):
                 "Le corrections_store a été mis à jour.",
             )
             self._statusbar.showMessage(f"Exporté → {path}")
+            self._refresh_form_suggestions()
         except Exception as e:
             QMessageBox.critical(self, "Erreur export", str(e))
