@@ -11,7 +11,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QSplitter, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QStatusBar, QProgressBar,
-    QMessageBox, QFrame, QLineEdit, QFileDialog
+    QMessageBox, QFrame, QLineEdit, QFileDialog, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 
@@ -137,6 +137,12 @@ class MainWindow(QMainWindow):
             "QPushButton:disabled { background: #333; color: #666; }"
         )
         toolbar.addWidget(self._detect_btn)
+
+        # YOLO Toggle
+        self._show_yolo_cb = QCheckBox("Afficher YOLO")
+        self._show_yolo_cb.setChecked(True)
+        self._show_yolo_cb.toggled.connect(self._on_yolo_toggle)
+        toolbar.addWidget(self._show_yolo_cb)
 
         self._candidate_count = QLabel("—")
         self._candidate_count.setStyleSheet("color: #aaa;")
@@ -316,6 +322,9 @@ class MainWindow(QMainWindow):
         self._progress.setVisible(False)
         self._detect_btn.setEnabled(True)
         self._statusbar.showMessage(f"Erreur détection: {msg}")
+
+    def _on_yolo_toggle(self, checked: bool):
+        self._canvas.set_candidates_visible(checked)
 
     # ------------------------------------------------------------------
     # Canvas → Form wiring
