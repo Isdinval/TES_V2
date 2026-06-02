@@ -193,7 +193,9 @@ class MainWindow(QMainWindow):
 
         self._mapping_list = MappingList()
         self._mapping_list.element_deleted.connect(self._on_element_deleted)
-        # Internal export button in MappingList is hidden — export is owned by toolbar
+        # Handle internal export button
+        self._mapping_list.export_requested.connect(self._on_export_clicked)
+
         self._mapping_list.setMaximumHeight(220)
         v_splitter.addWidget(self._mapping_list)
 
@@ -371,7 +373,8 @@ class MainWindow(QMainWindow):
     # Export
     # ------------------------------------------------------------------
 
-    def _on_export_clicked(self):
+    def _on_export_clicked(self, _path=None, _app=None, _screen=None):
+        """Note: arguments ignored as context is owned by MainWindow."""
         if not self._context_valid():
             QMessageBox.warning(
                 self,

@@ -60,8 +60,10 @@ class MappingList(QWidget):
         self._table.setColumnWidth(4, 90)
         self._table.setColumnWidth(5, 30)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        # Enable editing
+        self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked | QTableWidget.EditTrigger.EditKeyPressed)
         self._table.setAlternatingRowColors(True)
+        self._table.itemChanged.connect(self._on_item_changed)
         layout.addWidget(self._table)
 
     # ------------------------------------------------------------------
@@ -120,6 +122,7 @@ class MappingList(QWidget):
     def _refresh_table(self):
         """Rebuild the table from scratch. All delete buttons are recreated
         with correct indices via _make_delete_handler to avoid lambda closure bugs."""
+        self._table.blockSignals(True)
         self._table.setRowCount(0)
 
         for i, el in enumerate(self._elements):
@@ -131,6 +134,7 @@ class MappingList(QWidget):
 
             source = el.get("source", "human")
             src_item = QTableWidgetItem(source)
+            src_item.setFlags(src_item.flags() & ~Qt.ItemFlag.ItemIsEditable) # Source is read-only
             src_item.setForeground(
                 QColor("#7ec8e3") if source == "yolo_accepted" else QColor("#a0d4a0")
             )
@@ -144,6 +148,16 @@ class MappingList(QWidget):
 
         self._count_label.setText(f"{len(self._elements)} élément(s)")
         self._export_btn.setEnabled(len(self._elements) > 0)
+        self._table.blockSignals(False)
+
+    def _on_item_changed(self, item: QTableWidgetItem):
+        row = item.row()
+        col = item.column()
+        if 0 <= row < len(self._elements):
+            field_map = {0: "logical_key", 1: "ui_type", 2: "action", 3: "path"}
+            field = field_map.get(col)
+            if field:
+                self._elements[row][field] = item.text().strip()
 
     def _make_delete_handler(self, idx: int):
         """Returns a stable closure capturing idx by value."""
@@ -159,5 +173,4 @@ class MappingList(QWidget):
 
     def _export(self) -> None:
         # Delegate to main_window which owns app/screen context
-        # This button is kept for direct access; main_window connects it
         self.export_requested.emit("", "", "")

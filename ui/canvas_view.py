@@ -21,7 +21,6 @@ COLOR_CANDIDATE = QColor(100, 149, 237, 160)   # cornflower blue, semi-transpare
 COLOR_CANDIDATE_HOVER = QColor(100, 149, 237, 220)
 COLOR_SELECTED = QColor(255, 165, 0, 220)       # orange
 COLOR_MAPPED = QColor(50, 205, 50, 180)         # green
-COLOR_NAVIGATION = QColor(255, 140, 0, 200)     # DarkOrange for nav buttons
 COLOR_DRAW = QColor(255, 69, 0, 220)            # red-orange for live draw
 COLOR_SAMPLED = QColor(255, 255, 0, 220)        # yellow for sampled targets
 
@@ -253,13 +252,12 @@ class CanvasView(QWidget):
         )
         painter.drawPixmap(ir.x(), ir.y(), scaled)
 
-        # Draw mapped elements (green or orange for navigation)
+        # Draw mapped elements (always green)
         for el in self._mapped_elements:
             bbox = el.get("bbox_relative", {})
             rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
 
-            is_nav = "navigation_config" in el
-            base_color = COLOR_NAVIGATION if is_nav else COLOR_MAPPED
+            base_color = COLOR_MAPPED
 
             pen = QPen(base_color, 2)
             painter.setPen(pen)
