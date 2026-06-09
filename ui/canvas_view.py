@@ -17,8 +17,8 @@ from PIL import Image
 
 
 # Colors
-COLOR_CANDIDATE = QColor(100, 149, 237, 160)   # cornflower blue, semi-transparent
-COLOR_CANDIDATE_HOVER = QColor(100, 149, 237, 220)
+COLOR_CANDIDATE = QColor(255, 255, 0, 180)      # yellow contour
+COLOR_CANDIDATE_HOVER = QColor(255, 255, 0, 255)
 COLOR_SELECTED = QColor(255, 165, 0, 220)       # orange
 COLOR_MAPPED = QColor(50, 205, 50, 180)         # green
 COLOR_DRAW = QColor(255, 69, 0, 220)            # red-orange for live draw
@@ -47,6 +47,12 @@ class CanvasView(QWidget):
         self._selected_idx: int | None = None
         self._hover_idx: int | None = None
 
+        # Performance cache
+        self._cached_image_rect = QRect()
+        self._candidate_rects: list[QRect] = []
+        self._mapped_rects: list[QRect] = []
+        self._show_candidates = True
+
         # Sampling state
         self._sampling_mode = False
         self._sampled_points: list[dict] = [] # list of {"x", "y"} relative
@@ -71,16 +77,19 @@ class CanvasView(QWidget):
         self._selected_idx = None
         self._hover_idx = None
         self._sampled_points = []
+        self._update_geometry_cache()
         self.update()
 
     def set_candidates(self, candidates: list[dict]) -> None:
         self._candidates = candidates
         self._selected_idx = None
+        self._update_geometry_cache()
         self.update()
 
     def set_mapped_elements(self, elements: list[dict]) -> None:
         """Pass list of full element dicts for already-mapped elements."""
         self._mapped_elements = elements
+        self._update_geometry_cache()
         self.update()
 
     def clear_selection(self) -> None:
@@ -101,25 +110,61 @@ class CanvasView(QWidget):
         self._sampled_points = points
         self.update()
 
+    def set_candidates_visible(self, visible: bool) -> None:
+        self._show_candidates = visible
+        self.update()
+
     # ------------------------------------------------------------------
-    # Coordinate helpers
+    # Coordinate helpers & Cache
     # ------------------------------------------------------------------
 
-    def _image_rect(self) -> QRect:
-        """Scaled image rect, centered in widget."""
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_geometry_cache()
+
+    def _update_geometry_cache(self) -> None:
+        """Pre-calculate screen-space rectangles for all elements."""
         if self._pixmap is None:
-            return QRect(0, 0, self.width(), self.height())
-        scaled = self._pixmap.scaled(
-            self.width(), self.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            self._cached_image_rect = QRect(0, 0, self.width(), self.height())
+            return
+
+        # 1. Scaled image rect
+        scaled_size = self._pixmap.size().scaled(
+            self.size(), Qt.AspectRatioMode.KeepAspectRatio
         )
-        x = (self.width() - scaled.width()) // 2
-        y = (self.height() - scaled.height()) // 2
-        return QRect(x, y, scaled.width(), scaled.height())
+        x = (self.width() - scaled_size.width()) // 2
+        y = (self.height() - scaled_size.height()) // 2
+        self._cached_image_rect = QRect(x, y, scaled_size.width(), scaled_size.height())
+
+        ir = self._cached_image_rect
+
+        # 2. Candidates rects
+        self._candidate_rects = []
+        for c in self._candidates:
+            rx, ry, rw, rh = c["x"], c["y"], c["w"], c["h"]
+            rect = QRect(
+                ir.x() + int(rx * ir.width()),
+                ir.y() + int(ry * ir.height()),
+                int(rw * ir.width()),
+                int(rh * ir.height())
+            )
+            self._candidate_rects.append(rect)
+
+        # 3. Mapped rects
+        self._mapped_rects = []
+        for el in self._mapped_elements:
+            bbox = el.get("bbox_relative", {})
+            rx, ry, rw, rh = bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0)
+            rect = QRect(
+                ir.x() + int(rx * ir.width()),
+                ir.y() + int(ry * ir.height()),
+                int(rw * ir.width()),
+                int(rh * ir.height())
+            )
+            self._mapped_rects.append(rect)
 
     def _rel_to_screen(self, rx: float, ry: float, rw: float = 0, rh: float = 0) -> QRect:
-        ir = self._image_rect()
+        ir = self._cached_image_rect
         x = ir.x() + int(rx * ir.width())
         y = ir.y() + int(ry * ir.height())
         w = int(rw * ir.width())
@@ -127,25 +172,26 @@ class CanvasView(QWidget):
         return QRect(x, y, w, h)
 
     def _screen_to_rel(self, p: QPoint) -> tuple[float, float]:
-        ir = self._image_rect()
+        ir = self._cached_image_rect
+        if ir.width() <= 0 or ir.height() <= 0:
+            return 0.0, 0.0
         rx = (p.x() - ir.x()) / ir.width()
         ry = (p.y() - ir.y()) / ir.height()
         return max(0.0, min(1.0, rx)), max(0.0, min(1.0, ry))
 
     def _hit_candidate(self, pos: QPoint) -> int | None:
-        for i, c in enumerate(self._candidates):
-            rect = self._rel_to_screen(c["x"], c["y"], c["w"], c["h"])
-            if rect.contains(pos):
+        if not self._show_candidates:
+            return None
+        # Iterate backwards to pick the "top-most" (often smallest) bbox first
+        for i in reversed(range(len(self._candidate_rects))):
+            if self._candidate_rects[i].contains(pos):
                 return i
         return None
 
-    def _hit_mapped(self, pos: QPoint) -> dict | None:
-        """Returns the first mapped element that contains the screen position."""
-        for el in self._mapped_elements:
-            bbox = el.get("bbox_relative", {})
-            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
-            if rect.contains(pos):
-                return el
+    def _hit_mapped(self, pos: QPoint) -> int | None:
+        for i in reversed(range(len(self._mapped_rects))):
+            if self._mapped_rects[i].contains(pos):
+                return i
         return None
 
     # ------------------------------------------------------------------
@@ -153,44 +199,63 @@ class CanvasView(QWidget):
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event):
-        if event.button() != Qt.MouseButton.LeftButton:
-            return
-
-        if self._sampling_mode:
+        if self._sampling_mode and event.button() == Qt.MouseButton.LeftButton:
             rx, ry = self._screen_to_rel(event.pos())
             self.point_sampled.emit({"x": round(rx, 4), "y": round(ry, 4)})
             return
 
-        hit = self._hit_candidate(event.pos())
-        if hit is not None:
-            self._selected_idx = hit
-            self._drawing = False
-            self.update()
-            self.candidate_selected.emit(self._candidates[hit])
-        else:
-            # Start drawing
-            self._drawing = True
-            self._draw_start = event.pos()
-            self._draw_end = event.pos()
-            self._selected_idx = None
-            self.update()
-            self.selection_cleared.emit()
+        if event.button() == Qt.MouseButton.RightButton:
+            # Mask candidate
+            hit = self._hit_candidate(event.pos())
+            if hit is not None:
+                self._candidates.pop(hit)
+                self._update_geometry_cache()
+                self._hover_idx = None
+                self.update()
+            return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            hit = self._hit_candidate(event.pos())
+            if hit is not None:
+                self._selected_idx = hit
+                self._drawing = False
+                self.update()
+                self.candidate_selected.emit(self._candidates[hit])
+            else:
+                # Start drawing
+                self._drawing = True
+                self._draw_start = event.pos()
+                self._draw_end = event.pos()
+                self._selected_idx = None
+                self.update()
+                self.selection_cleared.emit()
 
     def mouseMoveEvent(self, event):
         if self._drawing:
             self._draw_end = event.pos()
             self.update()
-        else:
-            self._hover_idx = self._hit_candidate(event.pos())
+            return
 
-            # Tooltip for mapped elements
-            mapped = self._hit_mapped(event.pos())
-            if mapped:
-                QToolTip.showText(event.globalPosition().toPoint(), mapped.get("logical_key", ""), self)
-            else:
-                QToolTip.hideText()
-
+        # 1. Update hover state
+        old_hover = self._hover_idx
+        self._hover_idx = self._hit_candidate(event.pos())
+        if old_hover != self._hover_idx:
             self.update()
+
+        # 2. Tooltip logic
+        # Priority: Mapped elements > Candidates
+        mapped_idx = self._hit_mapped(event.pos())
+        if mapped_idx is not None:
+            el = self._mapped_elements[mapped_idx]
+            QToolTip.showText(event.globalPosition().toPoint(), el.get("logical_key", ""), self)
+        elif self._hover_idx is not None:
+            c = self._candidates[self._hover_idx]
+            desc = c.get("description", "")
+            conf = c.get("confidence", 0)
+            text = f"IA: {desc}\nConf: {conf:.2f}"
+            QToolTip.showText(event.globalPosition().toPoint(), text, self)
+        else:
+            QToolTip.hideText()
 
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:
@@ -202,14 +267,13 @@ class CanvasView(QWidget):
         if self._draw_start is None or self._draw_end is None:
             return
 
-        # Normalize rect (handle drag in any direction)
+        # Normalize rect
         x1 = min(self._draw_start.x(), self._draw_end.x())
         y1 = min(self._draw_start.y(), self._draw_end.y())
         x2 = max(self._draw_start.x(), self._draw_end.x())
         y2 = max(self._draw_start.y(), self._draw_end.y())
 
         if abs(x2 - x1) < 5 or abs(y2 - y1) < 5:
-            # Too small — ignore
             self._draw_start = None
             self._draw_end = None
             self.update()
@@ -226,6 +290,7 @@ class CanvasView(QWidget):
         }
         self._draw_start = None
         self._draw_end = None
+        self._update_geometry_cache()
         self.update()
         self.bbox_drawn.emit(bbox)
 
@@ -237,55 +302,59 @@ class CanvasView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
+        ir = self._cached_image_rect
+
         if self._pixmap is None:
             painter.fillRect(self.rect(), QColor(40, 40, 40))
             painter.setPen(QColor(150, 150, 150))
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Capture un écran pour commencer")
             return
 
-        # Draw scaled image
-        ir = self._image_rect()
-        scaled = self._pixmap.scaled(
-            ir.width(), ir.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        painter.drawPixmap(ir.x(), ir.y(), scaled)
+        # Draw image
+        painter.drawPixmap(ir, self._pixmap)
 
-        # Draw mapped elements (green)
-        pen = QPen(COLOR_MAPPED, 2)
-        painter.setPen(pen)
-        for el in self._mapped_elements:
-            bbox = el.get("bbox_relative", {})
-            rect = self._rel_to_screen(bbox.get("x", 0), bbox.get("y", 0), bbox.get("w", 0), bbox.get("h", 0))
-            painter.fillRect(rect, QColor(50, 205, 50, 30))
+        # Draw mapped elements (always green)
+        for i, el in enumerate(self._mapped_elements):
+            rect = self._mapped_rects[i]
+            base_color = COLOR_MAPPED
+
+            painter.setPen(QPen(base_color, 2))
+            painter.fillRect(rect, QColor(base_color.red(), base_color.green(), base_color.blue(), 30))
             painter.drawRect(rect)
 
-        # Draw candidates
-        for i, c in enumerate(self._candidates):
-            rect = self._rel_to_screen(c["x"], c["y"], c["w"], c["h"])
-            if i == self._selected_idx:
-                color = COLOR_SELECTED
-                pen_width = 2
-            elif i == self._hover_idx:
-                color = COLOR_CANDIDATE_HOVER
-                pen_width = 2
-            else:
-                color = COLOR_CANDIDATE
-                pen_width = 1
+            # Draw ALL click targets permanently (yellow dots)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(COLOR_SAMPLED)
 
-            painter.setPen(QPen(color, pen_width))
-            painter.fillRect(rect, QColor(color.red(), color.green(), color.blue(), 25))
-            painter.drawRect(rect)
+            target = el.get("click_target")
+            if target:
+                t_pos = self._rel_to_screen(target["x"], target["y"])
+                painter.drawEllipse(t_pos.topLeft(), 3, 3)
 
-            # Confidence label on hover/selected
-            if i in (self._selected_idx, self._hover_idx):
-                painter.setFont(QFont("monospace", 8))
-                label = f"{c.get('confidence', 0):.2f}"
-                painter.setPen(color)
-                painter.drawText(rect.x() + 2, rect.y() - 3, label)
+            for choice in el.get("choices", []):
+                if choice.get("x") is not None:
+                    c_pos = self._rel_to_screen(choice["x"], choice["y"])
+                    painter.drawEllipse(c_pos.topLeft(), 3, 3)
 
-        # Draw sampled points
+        # Draw candidates (YOLO)
+        if self._show_candidates:
+            for i, rect in enumerate(self._candidate_rects):
+                if i == self._selected_idx:
+                    color = COLOR_SELECTED
+                    pen_width = 2
+                elif i == self._hover_idx:
+                    color = COLOR_CANDIDATE_HOVER
+                    pen_width = 2
+                else:
+                    color = COLOR_CANDIDATE
+                    pen_width = 1
+
+                painter.setPen(QPen(color, pen_width))
+                # Yellow transparent interior
+                painter.fillRect(rect, QColor(255, 255, 0, 40))
+                painter.drawRect(rect)
+
+        # Draw currently sampling points (yellow circles)
         painter.setPen(QPen(COLOR_SAMPLED, 2))
         painter.setBrush(COLOR_SAMPLED)
         for p in self._sampled_points:
@@ -294,11 +363,7 @@ class CanvasView(QWidget):
 
         # Live draw rect
         if self._drawing and self._draw_start and self._draw_end:
-            x1 = min(self._draw_start.x(), self._draw_end.x())
-            y1 = min(self._draw_start.y(), self._draw_end.y())
-            x2 = max(self._draw_start.x(), self._draw_end.x())
-            y2 = max(self._draw_start.y(), self._draw_end.y())
-            draw_rect = QRect(x1, y1, x2 - x1, y2 - y1)
+            draw_rect = QRect(self._draw_start, self._draw_end).normalized()
             painter.setPen(QPen(COLOR_DRAW, 2, Qt.PenStyle.DashLine))
             painter.fillRect(draw_rect, QColor(255, 69, 0, 30))
             painter.drawRect(draw_rect)

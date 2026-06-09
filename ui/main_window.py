@@ -11,7 +11,7 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QSplitter, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QStatusBar, QProgressBar,
-    QMessageBox, QFrame, QLineEdit, QFileDialog
+    QMessageBox, QFrame, QLineEdit, QFileDialog, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 
@@ -97,6 +97,7 @@ class MainWindow(QMainWindow):
         self._app_input.setPlaceholderText("ex: orthokis")
         self._app_input.setFixedWidth(110)
         self._app_input.setToolTip("Nom du logiciel métier ciblé")
+        self._app_input.textChanged.connect(self._refresh_form_suggestions)
         toolbar.addWidget(self._app_input)
 
         toolbar.addWidget(QLabel("Écran:"))
@@ -136,6 +137,12 @@ class MainWindow(QMainWindow):
             "QPushButton:disabled { background: #333; color: #666; }"
         )
         toolbar.addWidget(self._detect_btn)
+
+        # YOLO Toggle
+        self._show_yolo_cb = QCheckBox("Afficher YOLO")
+        self._show_yolo_cb.setChecked(True)
+        self._show_yolo_cb.toggled.connect(self._on_yolo_toggle)
+        toolbar.addWidget(self._show_yolo_cb)
 
         self._candidate_count = QLabel("—")
         self._candidate_count.setStyleSheet("color: #aaa;")
@@ -192,7 +199,9 @@ class MainWindow(QMainWindow):
 
         self._mapping_list = MappingList()
         self._mapping_list.element_deleted.connect(self._on_element_deleted)
-        # Internal export button in MappingList is hidden — export is owned by toolbar
+        # Handle internal export button
+        self._mapping_list.export_requested.connect(self._on_export_clicked)
+
         self._mapping_list.setMaximumHeight(220)
         v_splitter.addWidget(self._mapping_list)
 
@@ -207,6 +216,8 @@ class MainWindow(QMainWindow):
         self._statusbar.showMessage(
             "Renseigne App + Écran, puis clique sur Capturer"
         )
+
+        self._refresh_form_suggestions()
 
     # ------------------------------------------------------------------
     # Monitor management
@@ -312,6 +323,9 @@ class MainWindow(QMainWindow):
         self._detect_btn.setEnabled(True)
         self._statusbar.showMessage(f"Erreur détection: {msg}")
 
+    def _on_yolo_toggle(self, checked: bool):
+        self._canvas.set_candidates_visible(checked)
+
     # ------------------------------------------------------------------
     # Canvas → Form wiring
     # ------------------------------------------------------------------
@@ -345,6 +359,8 @@ class MainWindow(QMainWindow):
             f"[{self._app_name()}::{self._screen_name()}] "
             f"Élément '{element['logical_key']}' ajouté"
         )
+        # Refresh suggestions as a new screen might have been created (or context updated)
+        self._refresh_form_suggestions()
 
     def _on_sampling_toggled(self, enabled: bool):
         self._canvas.set_sampling_mode(enabled)
@@ -354,6 +370,10 @@ class MainWindow(QMainWindow):
         else:
             self._canvas.set_sampled_points([])
 
+    def _refresh_form_suggestions(self):
+        screens = mapping_store.get_all_screens_for_app(self._app_name())
+        self._form.set_screen_suggestions(screens)
+
     def _on_element_deleted(self, _idx: int):
         self._canvas.set_mapped_elements(self._mapping_list.get_elements())
         self._export_btn.setEnabled(len(self._mapping_list.get_elements()) > 0)
@@ -362,7 +382,8 @@ class MainWindow(QMainWindow):
     # Export
     # ------------------------------------------------------------------
 
-    def _on_export_clicked(self):
+    def _on_export_clicked(self, _path=None, _app=None, _screen=None):
+        """Note: arguments ignored as context is owned by MainWindow."""
         if not self._context_valid():
             QMessageBox.warning(
                 self,
@@ -399,5 +420,6 @@ class MainWindow(QMainWindow):
                 "Le corrections_store a été mis à jour.",
             )
             self._statusbar.showMessage(f"Exporté → {path}")
+            self._refresh_form_suggestions()
         except Exception as e:
             QMessageBox.critical(self, "Erreur export", str(e))

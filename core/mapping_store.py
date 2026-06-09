@@ -42,6 +42,21 @@ def load_corrections_for(app_name: str, screen_name: str) -> dict:
     return load_corrections().get(key, {})
 
 
+def get_all_screens_for_app(app_name: str) -> list[str]:
+    """
+    Scans the full corrections store and returns a list of unique screen names
+    for the given app.
+    """
+    corrections = load_corrections()
+    screens = set()
+    prefix = f"{app_name.strip()}::"
+    for key in corrections.keys():
+        if key.startswith(prefix):
+            screen_name = key.replace(prefix, "", 1)
+            screens.add(screen_name)
+    return sorted(list(screens))
+
+
 def update_corrections(
     elements: list[dict],
     app_name: str,
@@ -77,6 +92,8 @@ def update_corrections(
                 data["drag_target"] = el["drag_target"]
             if "choices" in el:
                 data["choices"] = el["choices"]
+            if "navigation_config" in el:
+                data["navigation_config"] = el["navigation_config"]
 
             corrections[key][sid] = data
 
@@ -102,6 +119,8 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             continue
 
         scroll_cfg = data.get("scroll_config", {})
+        nav_cfg = data.get("navigation_config", {})
+
         element = build_element(
             bbox_relative=bbox,
             logical_key=data.get("logical_key", ""),
@@ -114,6 +133,7 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             scroll_amount=scroll_cfg.get("amount", 1),
             drag_target=data.get("drag_target", ""),
             choices=data.get("choices", []),
+            navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
         )
         elements.append(element)
     return elements
@@ -177,6 +197,7 @@ def build_element(
     scroll_amount: int = 1,
     drag_target: str = "",
     choices: Optional[list[dict]] = None,
+    navigation_target: str = "",
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
 
@@ -208,6 +229,11 @@ def build_element(
             element["expected_value"] = expected_value
         if choices:
             element["choices"] = choices
+
+    if ui_type == "button" and navigation_target:
+        element["navigation_config"] = {
+            "target_screen": navigation_target
+        }
 
     return element
 
