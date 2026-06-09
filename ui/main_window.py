@@ -25,28 +25,34 @@ class DetectionWorker(QObject):
     finished = pyqtSignal(list) # list of candidates
     error = pyqtSignal(str)
 
-    def __init__(self, image, yolo, caption):
+    def __init__(self, image, yolo, caption_model_processor):
         super().__init__()
         self.image = image
         self.yolo = yolo
-        self.caption = caption
+        self.caption_model_processor = caption_model_processor
 
     def run(self):
         try:
-            candidates = omniparser_bridge.detect_elements(self.image, self.yolo, self.caption)
-            self.finished.emit(candidates)
+            candidates = omniparser_bridge.run_detection(
+                self.image,
+                self.yolo,
+                self.caption_model_processor
+            )
+            # Convert candidates to dicts for UI consumption
+            candidate_dicts = [c.to_dict() for c in candidates]
+            self.finished.emit(candidate_dicts)
         except Exception as e:
             self.error.emit(str(e))
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, yolo_model=None, caption_model=None):
+    def __init__(self, yolo_model=None, caption_model_processor=None):
         super().__init__()
         self.setWindowTitle("TES v2 — UI Mapper")
         self.resize(1280, 850)
 
         self._yolo = yolo_model
-        self._caption = caption_model
+        self._caption = caption_model_processor
 
         self._current_image = None
         self._current_resolution = (0, 0)
