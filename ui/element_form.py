@@ -144,11 +144,23 @@ class ElementForm(QWidget):
         layout.addWidget(self._nav_group)
 
         # parent_scroll_area
-        self._parent_scroll_label = QLabel("Parent Scroll Area")
+        parent_scroll_box = QGroupBox("Zone Scrollable")
+        parent_scroll_layout = QVBoxLayout(parent_scroll_box)
+
+        self._parent_scroll_label = QLabel("Conteneur parent")
         self._parent_scroll_input = QComboBox()
         self._parent_scroll_input.setPlaceholderText("Aucune zone scrollable")
-        layout.addWidget(self._parent_scroll_label)
-        layout.addWidget(self._parent_scroll_input)
+        self._parent_scroll_input.currentTextChanged.connect(self._on_parent_scroll_changed)
+
+        self._requires_scroll_checkbox = QCheckBox("Nécessite un scroll préalable ?")
+        self._requires_scroll_checkbox.setToolTip("Cocher si cet élément n'est visible qu'après avoir fait défiler le parent")
+
+        parent_scroll_layout.addWidget(self._parent_scroll_label)
+        parent_scroll_layout.addWidget(self._parent_scroll_input)
+        parent_scroll_layout.addWidget(self._requires_scroll_checkbox)
+
+        self._parent_scroll_group = parent_scroll_box
+        layout.addWidget(self._parent_scroll_group)
 
         # scroll fields (only for scroll_area type)
         self._scroll_dir_label = QLabel("Direction du scroll")
@@ -229,8 +241,7 @@ class ElementForm(QWidget):
         self._scroll_amount_input.setVisible(is_scroll)
 
         # parent_scroll_area visibility: show for everything EXCEPT scroll_area itself
-        self._parent_scroll_label.setVisible(not is_scroll)
-        self._parent_scroll_input.setVisible(not is_scroll)
+        self._parent_scroll_group.setVisible(not is_scroll)
 
         is_drag = ui_type == "drag_handle"
         self._drag_target_label.setVisible(is_drag)
@@ -244,6 +255,12 @@ class ElementForm(QWidget):
     def _on_nav_toggled(self, checked: bool):
         self._target_screen_label.setVisible(checked)
         self._target_screen_input.setVisible(checked)
+
+    def _on_parent_scroll_changed(self, text: str):
+        # Only enable requires_scroll if a parent is selected
+        self._requires_scroll_checkbox.setEnabled(bool(text.strip()))
+        if not text.strip():
+            self._requires_scroll_checkbox.setChecked(False)
 
     def _add_choice(self):
         txt = self._choice_input.text().strip()
@@ -312,6 +329,7 @@ class ElementForm(QWidget):
     def set_scroll_area_suggestions(self, names: list[str]):
         """Update the parent_scroll_area dropdown with existing scroll areas."""
         current = self._parent_scroll_input.currentText()
+        self._parent_scroll_input.blockSignals(True)
         self._parent_scroll_input.clear()
         self._parent_scroll_input.addItem("") # Empty option
         if names:
@@ -325,6 +343,8 @@ class ElementForm(QWidget):
         idx = self._parent_scroll_input.findText(current)
         if idx >= 0:
             self._parent_scroll_input.setCurrentIndex(idx)
+        self._parent_scroll_input.blockSignals(False)
+        self._on_parent_scroll_changed(self._parent_scroll_input.currentText())
 
     # ------------------------------------------------------------------
     # Public API
@@ -368,11 +388,8 @@ class ElementForm(QWidget):
             idx = self._parent_scroll_input.findText(parent_scroll)
             if idx >= 0:
                 self._parent_scroll_input.setCurrentIndex(idx)
-            else:
-                # If the parent was mapped in another session or not found in current suggestions,
-                # we should still show it if possible, but the main_window handles the suggestions.
-                # For now, we trust the dropdown if it was updated.
-                pass
+
+            self._requires_scroll_checkbox.setChecked(correction.get("requires_scroll", False))
 
             # Load choices
             self._choices = list(correction.get("choices", []))
@@ -392,6 +409,7 @@ class ElementForm(QWidget):
             self._refresh_choices_table()
             self._is_nav_checkbox.setChecked(False)
             self._parent_scroll_input.setCurrentIndex(0) # None
+            self._requires_scroll_checkbox.setChecked(False)
             self._correction_label.setText("")
             self._status.setText(f"Source: {source}")
 
@@ -424,6 +442,7 @@ class ElementForm(QWidget):
             choices=valid_choices if valid_choices else None,
             navigation_target=self._target_screen_input.currentText().strip() if self._is_nav_checkbox.isChecked() else "",
             parent_scroll_area=self._parent_scroll_input.currentText().strip(),
+            requires_scroll=self._requires_scroll_checkbox.isChecked(),
         )
         self.element_confirmed.emit(element)
         self._clear()
@@ -444,6 +463,7 @@ class ElementForm(QWidget):
         self._drag_target_input.clear()
         self._path_input.clear()
         self._parent_scroll_input.setCurrentIndex(0)
+        self._requires_scroll_checkbox.setChecked(False)
         self._is_nav_checkbox.setChecked(False)
         self._target_screen_input.clearEditText()
         self._correction_label.setText("")

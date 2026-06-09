@@ -147,6 +147,7 @@ class MainWindow(QMainWindow):
         self._mapping_list.element_deleted.connect(self._on_element_deleted)
         # Handle internal export button
         self._mapping_list.export_requested.connect(self._on_export_clicked)
+        self._mapping_list.scroll_instruction_added.connect(self._on_scroll_instruction_added)
 
         self._mapping_list.setMaximumHeight(220)
         v_splitter.addWidget(self._mapping_list)
@@ -333,6 +334,13 @@ class MainWindow(QMainWindow):
             self._canvas.set_sampled_points(self._form.get_sampled_points())
         else:
             self._canvas.set_sampled_points([])
+
+    def _on_scroll_instruction_added(self, instruction: dict):
+        self._statusbar.showMessage(
+            f"[{self._app_name()}::{self._screen_name()}] "
+            f"Instruction de scroll ajoutée"
+        )
+        self._export_btn.setEnabled(True)
 
     def _refresh_form_suggestions(self):
         screens = mapping_store.get_all_screens_for_app(self._app_name())

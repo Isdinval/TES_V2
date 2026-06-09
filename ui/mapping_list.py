@@ -8,15 +8,57 @@ from __future__ import annotations
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
-    QFileDialog, QLineEdit, QMessageBox
+    QFileDialog, QLineEdit, QMessageBox, QDialog, QComboBox, QSpinBox
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtGui import QColor
 
 
+class ScrollInstructionDialog(QDialog):
+    def __init__(self, scroll_areas: list[str], parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Ajouter une instruction de Scroll")
+        self.setMinimumWidth(300)
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel("Zone à scroller :"))
+        self.target_combo = QComboBox()
+        self.target_combo.addItems(scroll_areas)
+        layout.addWidget(self.target_combo)
+
+        layout.addWidget(QLabel("Direction :"))
+        self.direction_combo = QComboBox()
+        self.direction_combo.addItems(["down", "up", "left", "right"])
+        layout.addWidget(self.direction_combo)
+
+        layout.addWidget(QLabel("Quantité (px ou pages) :"))
+        self.amount_spin = QSpinBox()
+        self.amount_spin.setRange(1, 5000)
+        self.amount_spin.setValue(1)
+        layout.addWidget(self.amount_spin)
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("Ajouter")
+        ok_btn.clicked.connect(self.accept)
+        cancel_btn = QPushButton("Annuler")
+        cancel_btn.clicked.connect(self.reject)
+        btns.addWidget(ok_btn)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+    def get_values(self):
+        return {
+            "target": self.target_combo.currentText(),
+            "direction": self.direction_combo.currentText(),
+            "amount": self.amount_spin.value()
+        }
+
+
 class MappingList(QWidget):
     element_deleted = pyqtSignal(int)
     export_requested = pyqtSignal(str, str, str)  # output_path, app_name, screen_name
+    scroll_instruction_added = pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,6 +78,14 @@ class MappingList(QWidget):
         self._count_label.setStyleSheet("color: #aaa;")
         header.addWidget(self._count_label)
         header.addStretch()
+
+        self._scroll_instr_btn = QPushButton("📜 Action Scroll")
+        self._scroll_instr_btn.clicked.connect(self._add_scroll_instruction)
+        self._scroll_instr_btn.setStyleSheet(
+            "QPushButton { background: #7a5a1a; color: white; padding: 5px 10px; border-radius: 4px; }"
+            "QPushButton:hover { background: #9a7a2a; }"
+        )
+        header.addWidget(self._scroll_instr_btn)
 
         self._export_btn = QPushButton("💾 Exporter JSON")
         self._export_btn.setEnabled(False)
@@ -71,16 +121,17 @@ class MappingList(QWidget):
     # ------------------------------------------------------------------
 
     def add_element(self, element: dict) -> None:
-        """Add a single element, refusing duplicates on logical_key."""
-        for existing in self._elements:
-            if existing["logical_key"] == element["logical_key"]:
-                QMessageBox.warning(
-                    self,
-                    "Doublon",
-                    f"Un élément avec la clé '{element['logical_key']}' existe déjà.\n"
-                    "Supprime-le d'abord si tu veux le remplacer.",
-                )
-                return
+        """Add a single element, refusing duplicates on logical_key (unless instruction)."""
+        if element.get("ui_type") != "instruction":
+            for existing in self._elements:
+                if existing["logical_key"] == element["logical_key"]:
+                    QMessageBox.warning(
+                        self,
+                        "Doublon",
+                        f"Un élément avec la clé '{element['logical_key']}' existe déjà.\n"
+                        "Supprime-le d'abord si tu veux le remplacer.",
+                    )
+                    return
         self._elements.append(element)
         self._refresh_table()
 
@@ -101,7 +152,7 @@ class MappingList(QWidget):
         return list(self._elements)
 
     def get_bboxes(self) -> list[dict]:
-        return [el["bbox_relative"] for el in self._elements]
+        return [el.get("bbox_relative") for el in self._elements if el.get("bbox_relative")]
 
     # ------------------------------------------------------------------
     # Export — app/screen names injected from main_window
@@ -120,24 +171,48 @@ class MappingList(QWidget):
     # ------------------------------------------------------------------
 
     def _refresh_table(self):
-        """Rebuild the table from scratch. All delete buttons are recreated
-        with correct indices via _make_delete_handler to avoid lambda closure bugs."""
+        """Rebuild the table from scratch."""
         self._table.blockSignals(True)
         self._table.setRowCount(0)
 
         for i, el in enumerate(self._elements):
             self._table.insertRow(i)
-            self._table.setItem(i, 0, QTableWidgetItem(el.get("logical_key", "")))
-            self._table.setItem(i, 1, QTableWidgetItem(el.get("ui_type", "")))
-            self._table.setItem(i, 2, QTableWidgetItem(el.get("action", "")))
-            self._table.setItem(i, 3, QTableWidgetItem(el.get("path", "")))
+
+            ui_type = el.get("ui_type", "")
+            is_instr = ui_type == "instruction"
+
+            key = el.get("logical_key", "")
+            if is_instr:
+                key = f"SCROLL: {el.get('parent_scroll_area', '')}"
+
+            key_item = QTableWidgetItem(key)
+            if is_instr:
+                key_item.setBackground(QColor("#3a3a2a"))
+            self._table.setItem(i, 0, key_item)
+
+            type_item = QTableWidgetItem(ui_type)
+            if is_instr:
+                type_item.setBackground(QColor("#3a3a2a"))
+            self._table.setItem(i, 1, type_item)
+
+            action_item = QTableWidgetItem(el.get("action", ""))
+            if is_instr:
+                action_item.setBackground(QColor("#3a3a2a"))
+            self._table.setItem(i, 2, action_item)
+
+            path_item = QTableWidgetItem(el.get("path", ""))
+            if is_instr:
+                path_item.setBackground(QColor("#3a3a2a"))
+            self._table.setItem(i, 3, path_item)
 
             source = el.get("source", "human")
             src_item = QTableWidgetItem(source)
-            src_item.setFlags(src_item.flags() & ~Qt.ItemFlag.ItemIsEditable) # Source is read-only
+            src_item.setFlags(src_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             src_item.setForeground(
                 QColor("#7ec8e3") if source == "yolo_accepted" else QColor("#a0d4a0")
             )
+            if is_instr:
+                src_item.setBackground(QColor("#3a3a2a"))
             self._table.setItem(i, 4, src_item)
 
             del_btn = QPushButton("✖")
@@ -160,7 +235,6 @@ class MappingList(QWidget):
                 self._elements[row][field] = item.text().strip()
 
     def _make_delete_handler(self, idx: int):
-        """Returns a stable closure capturing idx by value."""
         def handler():
             self._delete(idx)
         return handler
@@ -171,6 +245,24 @@ class MappingList(QWidget):
             self._refresh_table()
             self.element_deleted.emit(idx)
 
+    def _add_scroll_instruction(self):
+        # Get list of existing scroll areas
+        scroll_areas = [el["logical_key"] for el in self._elements if el.get("ui_type") == "scroll_area"]
+        if not scroll_areas:
+            QMessageBox.warning(self, "Action impossible", "Aucune zone scrollable n'a été mappée.")
+            return
+
+        dlg = ScrollInstructionDialog(scroll_areas, self)
+        if dlg.exec():
+            vals = dlg.get_values()
+            from core.mapping_store import build_scroll_instruction
+            instr = build_scroll_instruction(
+                target_scroll_area=vals["target"],
+                direction=vals["direction"],
+                amount=vals["amount"]
+            )
+            self.add_element(instr)
+            self.scroll_instruction_added.emit(instr)
+
     def _export(self) -> None:
-        # Delegate to main_window which owns app/screen context
         self.export_requested.emit("", "", "")

@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -80,10 +81,12 @@ def update_corrections(
                 "ui_type": el.get("ui_type", ""),
                 "action": el.get("action", ""),
                 "path": el.get("path", ""),
-                "bbox_relative": el.get("bbox_relative", {}),
                 "source": el.get("source", "human"),
+                "created_at": el.get("created_at", datetime.now().isoformat()),
             }
-            # Add optional fields if they exist
+            # Optional fields
+            if "bbox_relative" in el:
+                data["bbox_relative"] = el["bbox_relative"]
             if "expected_value" in el:
                 data["expected_value"] = el["expected_value"]
             if "scroll_config" in el:
@@ -94,6 +97,8 @@ def update_corrections(
                 data["choices"] = el["choices"]
             if "parent_scroll_area" in el:
                 data["parent_scroll_area"] = el["parent_scroll_area"]
+            if "requires_scroll" in el:
+                data["requires_scroll"] = el["requires_scroll"]
             if "navigation_config" in el:
                 data["navigation_config"] = el["navigation_config"]
 
@@ -109,35 +114,52 @@ def update_corrections(
 def load_session(app_name: str, screen_name: str) -> list[dict]:
     """
     Reconstruit la liste des éléments depuis corrections_store.json
-    pour un contexte app/screen donné.
-    Appelé après capture pour restaurer les éléments déjà mappés.
-    Entrées sans bbox_relative (ancien format) sont ignorées.
+    pour un contexte app/screen donné, triée par created_at.
     """
     context = load_corrections_for(app_name, screen_name)
-    elements = []
+    elements_data = []
     for sid, data in context.items():
-        bbox = data.get("bbox_relative", {})
-        if not bbox:
-            continue
+        elements_data.append({"stable_id": sid, **data})
 
-        scroll_cfg = data.get("scroll_config", {})
-        nav_cfg = data.get("navigation_config", {})
+    # Sort by created_at to preserve sequence
+    elements_data.sort(key=lambda x: x.get("created_at", ""))
 
-        element = build_element(
-            bbox_relative=bbox,
-            logical_key=data.get("logical_key", ""),
-            ui_type=data.get("ui_type", ""),
-            action=data.get("action", ""),
-            path=data.get("path", ""),
-            source=data.get("source", "human"),
-            expected_value=data.get("expected_value", ""),
-            scroll_direction=scroll_cfg.get("direction", "down"),
-            scroll_amount=scroll_cfg.get("amount", 1),
-            drag_target=data.get("drag_target", ""),
-            choices=data.get("choices", []),
-            navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
-            parent_scroll_area=data.get("parent_scroll_area", ""),
-        )
+    elements = []
+    for data in elements_data:
+        bbox = data.get("bbox_relative")
+
+        # Build based on whether it is a standard element or an instruction
+        if bbox:
+            scroll_cfg = data.get("scroll_config", {})
+            nav_cfg = data.get("navigation_config", {})
+
+            element = build_element(
+                bbox_relative=bbox,
+                logical_key=data.get("logical_key", ""),
+                ui_type=data.get("ui_type", ""),
+                action=data.get("action", ""),
+                path=data.get("path", ""),
+                source=data.get("source", "human"),
+                expected_value=data.get("expected_value", ""),
+                scroll_direction=scroll_cfg.get("direction", "down"),
+                scroll_amount=scroll_cfg.get("amount", 1),
+                drag_target=data.get("drag_target", ""),
+                choices=data.get("choices", []),
+                navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
+                parent_scroll_area=data.get("parent_scroll_area", ""),
+                requires_scroll=data.get("requires_scroll", False),
+                created_at=data.get("created_at"),
+            )
+        else:
+            # Instruction element
+            element = build_scroll_instruction(
+                target_scroll_area=data.get("parent_scroll_area", ""),
+                direction=data.get("scroll_config", {}).get("direction", "down"),
+                amount=data.get("scroll_config", {}).get("amount", 1),
+                created_at=data.get("created_at"),
+            )
+            element["stable_id"] = data["stable_id"] # Preserve ID
+
         elements.append(element)
     return elements
 
@@ -167,9 +189,6 @@ def lookup_correction(
 def compute_click_target(bbox_relative: dict, ui_type: str, extra_params: Optional[dict] = None) -> Optional[dict]:
     """
     Calcule le point de clic optimal selon le type d'UI.
-    - checkbox / radio : décalé à gauche (15% w)
-    - scroll_area : aucun (None)
-    - Autres : centre (50% w, 50% h)
     """
     bx = bbox_relative
     if ui_type == "scroll_area":
@@ -202,6 +221,8 @@ def build_element(
     choices: Optional[list[dict]] = None,
     navigation_target: str = "",
     parent_scroll_area: str = "",
+    requires_scroll: bool = False,
+    created_at: str = None,
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
 
@@ -213,6 +234,7 @@ def build_element(
         "path": path,
         "bbox_relative": bbox_relative,
         "source": source,
+        "created_at": created_at or datetime.now().isoformat(),
     }
 
     click_target = compute_click_target(bbox_relative, ui_type)
@@ -241,8 +263,31 @@ def build_element(
 
     if parent_scroll_area:
         element["parent_scroll_area"] = parent_scroll_area
+        element["requires_scroll"] = requires_scroll
 
     return element
+
+
+def build_scroll_instruction(
+    target_scroll_area: str,
+    direction: str = "down",
+    amount: int = 1,
+    created_at: str = None,
+) -> dict:
+    """Creates a virtual instruction element for the sequence."""
+    created_at = created_at or datetime.now().isoformat()
+    return {
+        "stable_id": f"instr_{uuid.uuid4().hex[:8]}",
+        "ui_type": "instruction",
+        "action": "scroll",
+        "parent_scroll_area": target_scroll_area,
+        "scroll_config": {
+            "direction": direction,
+            "amount": amount
+        },
+        "created_at": created_at,
+        "source": "human"
+    }
 
 
 def export_mapping(
@@ -252,6 +297,9 @@ def export_mapping(
     resolution: tuple[int, int],
     output_path: str,
 ) -> None:
+    # Sort elements by created_at to ensure sequence in export
+    sorted_elements = sorted(elements, key=lambda x: x.get("created_at", ""))
+
     payload = {
         "meta": {
             "app": app_name,
@@ -259,8 +307,8 @@ def export_mapping(
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "resolution": list(resolution),
         },
-        "elements": elements,
+        "elements": sorted_elements,
     }
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
-    update_corrections(elements, app_name, screen_name)
+    update_corrections(sorted_elements, app_name, screen_name)
