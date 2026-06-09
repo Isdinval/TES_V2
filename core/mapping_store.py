@@ -92,6 +92,8 @@ def update_corrections(
                 data["drag_target"] = el["drag_target"]
             if "choices" in el:
                 data["choices"] = el["choices"]
+            if "parent_scroll_area" in el:
+                data["parent_scroll_area"] = el["parent_scroll_area"]
             if "navigation_config" in el:
                 data["navigation_config"] = el["navigation_config"]
 
@@ -134,6 +136,7 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             drag_target=data.get("drag_target", ""),
             choices=data.get("choices", []),
             navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
+            parent_scroll_area=data.get("parent_scroll_area", ""),
         )
         elements.append(element)
     return elements
@@ -198,6 +201,7 @@ def build_element(
     drag_target: str = "",
     choices: Optional[list[dict]] = None,
     navigation_target: str = "",
+    parent_scroll_area: str = "",
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
 
@@ -234,6 +238,9 @@ def build_element(
         element["navigation_config"] = {
             "target_screen": navigation_target
         }
+
+    if parent_scroll_area:
+        element["parent_scroll_area"] = parent_scroll_area
 
     return element
 

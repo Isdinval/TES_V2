@@ -100,63 +100,65 @@ class ElementForm(QWidget):
         h_choices = QHBoxLayout()
         self._choice_input = QLineEdit()
         self._choice_input.setPlaceholderText("Label de l'option")
-        self._choice_input.returnPressed.connect(self._add_choice)
         h_choices.addWidget(self._choice_input)
-
-        self._add_choice_btn = QPushButton("➕")
-        self._add_choice_btn.setFixedWidth(30)
-        self._add_choice_btn.clicked.connect(self._add_choice)
-        h_choices.addWidget(self._add_choice_btn)
+        add_choice_btn = QPushButton("+")
+        add_choice_btn.setFixedWidth(30)
+        add_choice_btn.clicked.connect(self._add_choice)
+        h_choices.addWidget(add_choice_btn)
         choices_layout.addLayout(h_choices)
 
         self._choices_table = QTableWidget(0, 3)
-        self._choices_table.setHorizontalHeaderLabels(["Label", "Cible", "🗑"])
+        self._choices_table.setHorizontalHeaderLabels(["Label", "Cible", ""])
         self._choices_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self._choices_table.setColumnWidth(1, 40)
-        self._choices_table.setColumnWidth(2, 30)
-        self._choices_table.setFixedHeight(120)
+        self._choices_table.setColumnWidth(2, 24)
+        self._choices_table.setFixedHeight(100)
         choices_layout.addWidget(self._choices_table)
 
-        self._sample_btn = QPushButton("🎯 Enregistrer les points de clic")
+        self._sample_btn = QPushButton("🎯 Capturer les points de clic")
         self._sample_btn.setCheckable(True)
-        self._sample_btn.clicked.connect(self._toggle_sampling)
-        self._sample_btn.setStyleSheet(
-            "QPushButton:checked { background: #7a7a20; color: white; }"
-        )
+        self._sample_btn.toggled.connect(self._toggle_sampling)
         choices_layout.addWidget(self._sample_btn)
 
         layout.addWidget(self._choices_group)
 
-        # --- Navigation Section ---
-        self._nav_group = QGroupBox("Navigation")
-        nav_layout = QVBoxLayout(self._nav_group)
-        self._is_nav_checkbox = QCheckBox("Bouton de changement de fiche")
-        self._is_nav_checkbox.toggled.connect(self._on_nav_toggled)
-        nav_layout.addWidget(self._is_nav_checkbox)
-
-        self._target_screen_label = QLabel("Fiche de destination")
-        self._target_screen_input = QComboBox()
-        self._target_screen_input.setEditable(True)
-        self._target_screen_input.setPlaceholderText("ex: fiche_bilan")
-        nav_layout.addWidget(self._target_screen_label)
-        nav_layout.addWidget(self._target_screen_input)
-
-        layout.addWidget(self._nav_group)
-
-        # expected_value (fallback simple)
-        self._expected_value_label = QLabel("Expected value (simple)")
+        # expected_value (for validations or radio select)
+        self._expected_value_label = QLabel("Valeur attendue")
         self._expected_value_input = QLineEdit()
-        self._expected_value_input.setPlaceholderText("ex: France")
+        self._expected_value_input.setPlaceholderText("ex: True ou label exact")
         layout.addWidget(self._expected_value_label)
         layout.addWidget(self._expected_value_input)
 
-        # scroll fields (scroll_area)
-        self._scroll_dir_label = QLabel("Scroll Direction")
+        # Navigation section
+        self._nav_group = QGroupBox("Navigation")
+        nav_layout = QVBoxLayout(self._nav_group)
+        self._is_nav_checkbox = QCheckBox("Bouton de navigation ?")
+        self._is_nav_checkbox.toggled.connect(self._on_nav_toggled)
+        nav_layout.addWidget(self._is_nav_checkbox)
+
+        self._target_screen_label = QLabel("Écran de destination")
+        self._target_screen_input = QComboBox()
+        self._target_screen_input.setEditable(True)
+        nav_layout.addWidget(self._target_screen_label)
+        nav_layout.addWidget(self._target_screen_input)
+        layout.addWidget(self._nav_group)
+
+        # parent_scroll_area
+        self._parent_scroll_label = QLabel("Parent Scroll Area")
+        self._parent_scroll_input = QComboBox()
+        self._parent_scroll_input.setPlaceholderText("Aucune zone scrollable")
+        layout.addWidget(self._parent_scroll_label)
+        layout.addWidget(self._parent_scroll_input)
+
+        # scroll fields (only for scroll_area type)
+        self._scroll_dir_label = QLabel("Direction du scroll")
         self._scroll_dir_input = QComboBox()
         self._scroll_dir_input.addItems(["up", "down", "left", "right"])
-        self._scroll_amount_label = QLabel("Scroll Amount")
+        self._scroll_dir_input.setCurrentText("down")
+        self._scroll_amount_label = QLabel("Quantité (px ou pages)")
         self._scroll_amount_input = QSpinBox()
-        self._scroll_amount_input.setRange(1, 100)
+        self._scroll_amount_input.setRange(1, 5000)
+        self._scroll_amount_input.setValue(1)
         layout.addWidget(self._scroll_dir_label)
         layout.addWidget(self._scroll_dir_input)
         layout.addWidget(self._scroll_amount_label)
@@ -225,6 +227,10 @@ class ElementForm(QWidget):
         self._scroll_dir_input.setVisible(is_scroll)
         self._scroll_amount_label.setVisible(is_scroll)
         self._scroll_amount_input.setVisible(is_scroll)
+
+        # parent_scroll_area visibility: show for everything EXCEPT scroll_area itself
+        self._parent_scroll_label.setVisible(not is_scroll)
+        self._parent_scroll_input.setVisible(not is_scroll)
 
         is_drag = ui_type == "drag_handle"
         self._drag_target_label.setVisible(is_drag)
@@ -303,6 +309,23 @@ class ElementForm(QWidget):
         self._target_screen_input.addItems(screens)
         self._target_screen_input.setEditText(current)
 
+    def set_scroll_area_suggestions(self, names: list[str]):
+        """Update the parent_scroll_area dropdown with existing scroll areas."""
+        current = self._parent_scroll_input.currentText()
+        self._parent_scroll_input.clear()
+        self._parent_scroll_input.addItem("") # Empty option
+        if names:
+            self._parent_scroll_input.addItems(names)
+            self._parent_scroll_input.setEnabled(True)
+            self._parent_scroll_input.setPlaceholderText("Choisir un parent...")
+        else:
+            self._parent_scroll_input.setEnabled(False)
+            self._parent_scroll_input.setPlaceholderText("Aucune zone scrollable")
+
+        idx = self._parent_scroll_input.findText(current)
+        if idx >= 0:
+            self._parent_scroll_input.setCurrentIndex(idx)
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -341,6 +364,16 @@ class ElementForm(QWidget):
 
             self._drag_target_input.setText(correction.get("drag_target", ""))
 
+            parent_scroll = correction.get("parent_scroll_area", "")
+            idx = self._parent_scroll_input.findText(parent_scroll)
+            if idx >= 0:
+                self._parent_scroll_input.setCurrentIndex(idx)
+            else:
+                # If the parent was mapped in another session or not found in current suggestions,
+                # we should still show it if possible, but the main_window handles the suggestions.
+                # For now, we trust the dropdown if it was updated.
+                pass
+
             # Load choices
             self._choices = list(correction.get("choices", []))
             self._refresh_choices_table()
@@ -358,6 +391,7 @@ class ElementForm(QWidget):
         else:
             self._refresh_choices_table()
             self._is_nav_checkbox.setChecked(False)
+            self._parent_scroll_input.setCurrentIndex(0) # None
             self._correction_label.setText("")
             self._status.setText(f"Source: {source}")
 
@@ -389,6 +423,7 @@ class ElementForm(QWidget):
             drag_target=self._drag_target_input.text().strip(),
             choices=valid_choices if valid_choices else None,
             navigation_target=self._target_screen_input.currentText().strip() if self._is_nav_checkbox.isChecked() else "",
+            parent_scroll_area=self._parent_scroll_input.currentText().strip(),
         )
         self.element_confirmed.emit(element)
         self._clear()
@@ -408,6 +443,7 @@ class ElementForm(QWidget):
         self._scroll_amount_input.setValue(1)
         self._drag_target_input.clear()
         self._path_input.clear()
+        self._parent_scroll_input.setCurrentIndex(0)
         self._is_nav_checkbox.setChecked(False)
         self._target_screen_input.clearEditText()
         self._correction_label.setText("")

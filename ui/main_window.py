@@ -1,179 +1,119 @@
 """
-MainWindow: assembles CanvasView + ElementForm + MappingList.
-Handles capture, detection, and wiring between components.
-
-App/screen context is owned here (toolbar) and passed down to
-mapping_store functions so corrections are scoped per app::screen.
+MainWindow: orchestration of the application.
+Coordinates capture, detection, form editing, and mapping list.
 """
 
 from __future__ import annotations
+import os
+import sys
 
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QSplitter, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLabel, QStatusBar, QProgressBar,
-    QMessageBox, QFrame, QLineEdit, QFileDialog, QCheckBox
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
+    QLabel, QComboBox, QProgressBar, QStatusBar, QSplitter,
+    QFileDialog, QMessageBox, QCheckBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+from PyQt6.QtGui import QPixmap, QImage
 
+from core import screen_capture, mapping_store, omniparser_bridge
 from ui.canvas_view import CanvasView
 from ui.element_form import ElementForm
 from ui.mapping_list import MappingList
-from core import screen_capture, omniparser_bridge, mapping_store
 
-
-# ------------------------------------------------------------------
-# Worker thread for detection (keeps UI responsive)
-# ------------------------------------------------------------------
 
 class DetectionWorker(QObject):
-    finished = pyqtSignal(list)
+    finished = pyqtSignal(list) # list of candidates
     error = pyqtSignal(str)
 
-    def __init__(self, image, yolo_model, caption_model_processor):
+    def __init__(self, image, yolo, caption):
         super().__init__()
-        self._image = image
-        self._yolo = yolo_model
-        self._caption = caption_model_processor
+        self.image = image
+        self.yolo = yolo
+        self.caption = caption
 
     def run(self):
         try:
-            candidates = omniparser_bridge.run_detection(
-                self._image, self._yolo, self._caption
-            )
-            self.finished.emit([c.to_dict() for c in candidates])
+            candidates = omniparser_bridge.detect_elements(self.image, self.yolo, self.caption)
+            self.finished.emit(candidates)
         except Exception as e:
             self.error.emit(str(e))
 
 
-# ------------------------------------------------------------------
-# Main window
-# ------------------------------------------------------------------
-
 class MainWindow(QMainWindow):
-    def __init__(self, yolo_model=None, caption_model_processor=None):
+    def __init__(self, yolo_model=None, caption_model=None):
         super().__init__()
-        self._yolo = yolo_model
-        self._caption = caption_model_processor
-        self._current_image = None
-        self._current_resolution = (1920, 1080)
-        self._detection_thread: QThread | None = None
-
         self.setWindowTitle("TES v2 — UI Mapper")
-        self.resize(1400, 900)
+        self.resize(1280, 850)
+
+        self._yolo = yolo_model
+        self._caption = caption_model
+
+        self._current_image = None
+        self._current_resolution = (0, 0)
+
         self._setup_ui()
         self._refresh_monitors()
-
-    # ------------------------------------------------------------------
-    # Context helpers (app + screen)
-    # ------------------------------------------------------------------
-
-    def _app_name(self) -> str:
-        return self._app_input.text().strip() or "unknown"
-
-    def _screen_name(self) -> str:
-        return self._screen_input.text().strip() or "unknown"
-
-    def _context_valid(self) -> bool:
-        """Both fields must be filled before capture."""
-        return bool(self._app_input.text().strip()) and bool(self._screen_input.text().strip())
-
-    # ------------------------------------------------------------------
-    # UI setup
-    # ------------------------------------------------------------------
 
     def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
-        root.setContentsMargins(6, 6, 6, 6)
-        root.setSpacing(4)
 
         # ── Toolbar ──────────────────────────────────────────────────
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(10)
 
-        # Context: App + Screen (must be filled before capture)
+        toolbar.addWidget(QLabel("Monitor:"))
+        self._monitor_combo = QComboBox()
+        toolbar.addWidget(self._monitor_combo)
+
         toolbar.addWidget(QLabel("App:"))
-        self._app_input = QLineEdit()
-        self._app_input.setPlaceholderText("ex: orthokis")
-        self._app_input.setFixedWidth(110)
-        self._app_input.setToolTip("Nom du logiciel métier ciblé")
-        self._app_input.textChanged.connect(self._refresh_form_suggestions)
+        self._app_input = QComboBox()
+        self._app_input.setEditable(True)
+        self._app_input.setFixedWidth(120)
         toolbar.addWidget(self._app_input)
 
         toolbar.addWidget(QLabel("Écran:"))
-        self._screen_input = QLineEdit()
-        self._screen_input.setPlaceholderText("ex: fiche_patient")
-        self._screen_input.setFixedWidth(130)
-        self._screen_input.setToolTip("Nom de l'écran/vue à mapper (doit être unique par app)")
+        self._screen_input = QComboBox()
+        self._screen_input.setEditable(True)
+        self._screen_input.setFixedWidth(120)
         toolbar.addWidget(self._screen_input)
 
-        sep_v = QFrame()
-        sep_v.setFrameShape(QFrame.Shape.VLine)
-        sep_v.setStyleSheet("color: #444;")
-        toolbar.addWidget(sep_v)
-
-        # Monitor selector
-        toolbar.addWidget(QLabel("Moniteur:"))
-        self._monitor_combo = QComboBox()
-        self._monitor_combo.setMinimumWidth(200)
-        toolbar.addWidget(self._monitor_combo)
-
-        # Capture button
         self._capture_btn = QPushButton("📸 Capturer")
         self._capture_btn.clicked.connect(self._capture)
-        self._capture_btn.setStyleSheet(
-            "QPushButton { background: #3a5a3a; color: white; padding: 5px 12px; border-radius: 4px; }"
-            "QPushButton:hover { background: #4a7a4a; }"
-        )
+        self._capture_btn.setStyleSheet("background: #1a4f7a; color: white; font-weight: bold;")
         toolbar.addWidget(self._capture_btn)
 
-        # Detect button
-        self._detect_btn = QPushButton("🔍 Détecter (YOLO)")
-        self._detect_btn.clicked.connect(self._detect)
+        self._detect_btn = QPushButton("🔍 Détecter")
         self._detect_btn.setEnabled(False)
-        self._detect_btn.setStyleSheet(
-            "QPushButton { background: #3a3a6a; color: white; padding: 5px 12px; border-radius: 4px; }"
-            "QPushButton:hover { background: #4a4a8a; }"
-            "QPushButton:disabled { background: #333; color: #666; }"
-        )
+        self._detect_btn.clicked.connect(self._detect)
         toolbar.addWidget(self._detect_btn)
 
-        # YOLO Toggle
-        self._show_yolo_cb = QCheckBox("Afficher YOLO")
-        self._show_yolo_cb.setChecked(True)
-        self._show_yolo_cb.toggled.connect(self._on_yolo_toggle)
-        toolbar.addWidget(self._show_yolo_cb)
-
-        self._candidate_count = QLabel("—")
-        self._candidate_count.setStyleSheet("color: #aaa;")
-        toolbar.addWidget(self._candidate_count)
+        self._yolo_toggle = QCheckBox("Show YOLO")
+        self._yolo_toggle.setChecked(True)
+        self._yolo_toggle.toggled.connect(self._on_yolo_toggle)
+        toolbar.addWidget(self._yolo_toggle)
 
         toolbar.addStretch()
 
-        # Export button (lives in toolbar, owns the context)
-        self._export_btn = QPushButton("💾 Exporter JSON")
-        self._export_btn.setEnabled(False)
-        self._export_btn.clicked.connect(self._on_export_clicked)
-        self._export_btn.setStyleSheet(
-            "QPushButton { background: #1a4f7a; color: white; padding: 5px 10px; border-radius: 4px; }"
-            "QPushButton:hover { background: #2a6fa0; }"
-            "QPushButton:disabled { background: #333; color: #666; }"
-        )
-        toolbar.addWidget(self._export_btn)
+        self._candidate_count = QLabel("0 candidats")
+        self._candidate_count.setStyleSheet("color: #888;")
+        toolbar.addWidget(self._candidate_count)
 
         self._progress = QProgressBar()
-        self._progress.setFixedWidth(160)
+        self._progress.setFixedWidth(100)
         self._progress.setVisible(False)
         toolbar.addWidget(self._progress)
 
+        self._export_btn = QPushButton("💾 Export")
+        self._export_btn.setEnabled(False)
+        self._export_btn.clicked.connect(self._on_export_clicked)
+        self._export_btn.setStyleSheet("background: #2d6a2d; color: white;")
+        toolbar.addWidget(self._export_btn)
+
         root.addLayout(toolbar)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #333;")
-        root.addWidget(sep)
-
-        # ── Main area ─────────────────────────────────────────────────
+        # ── Main Splitter (Canvas | Form) ─────────────────────────────
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self._canvas = CanvasView()
@@ -218,6 +158,22 @@ class MainWindow(QMainWindow):
         )
 
         self._refresh_form_suggestions()
+        self._update_form_scroll_areas()
+
+    def _app_name(self) -> str:
+        return self._app_input.currentText().strip() or "default_app"
+
+    def _screen_name(self) -> str:
+        return self._screen_input.currentText().strip() or "default_screen"
+
+    def _context_valid(self) -> bool:
+        return bool(self._app_input.currentText().strip() and self._screen_input.currentText().strip())
+
+    def _update_form_scroll_areas(self):
+        """Scans mapped elements for scroll_areas and updates the form dropdown."""
+        elements = self._mapping_list.get_elements()
+        scroll_names = [el["logical_key"] for el in elements if el.get("ui_type") == "scroll_area"]
+        self._form.set_scroll_area_suggestions(scroll_names)
 
     # ------------------------------------------------------------------
     # Monitor management
@@ -271,6 +227,7 @@ class MainWindow(QMainWindow):
             elements = mapping_store.load_session(self._app_name(), self._screen_name())
             self._mapping_list.load_from_elements(elements)
             self._canvas.set_mapped_elements(self._mapping_list.get_elements())
+            self._update_form_scroll_areas()
             self._export_btn.setEnabled(len(elements) > 0)
             if elements:
                 self._statusbar.showMessage(
@@ -354,6 +311,7 @@ class MainWindow(QMainWindow):
     def _on_element_confirmed(self, element: dict):
         self._mapping_list.add_element(element)
         self._canvas.set_mapped_elements(self._mapping_list.get_elements())
+        self._update_form_scroll_areas()
         self._export_btn.setEnabled(True)
         self._statusbar.showMessage(
             f"[{self._app_name()}::{self._screen_name()}] "
@@ -376,6 +334,7 @@ class MainWindow(QMainWindow):
 
     def _on_element_deleted(self, _idx: int):
         self._canvas.set_mapped_elements(self._mapping_list.get_elements())
+        self._update_form_scroll_areas()
         self._export_btn.setEnabled(len(self._mapping_list.get_elements()) > 0)
 
     # ------------------------------------------------------------------
@@ -421,5 +380,6 @@ class MainWindow(QMainWindow):
             )
             self._statusbar.showMessage(f"Exporté → {path}")
             self._refresh_form_suggestions()
+            self._update_form_scroll_areas()
         except Exception as e:
             QMessageBox.critical(self, "Erreur export", str(e))
