@@ -5,6 +5,7 @@ MainWindow: orchestration of the application.
 from __future__ import annotations
 import os
 from PIL import Image
+import sys
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -32,10 +33,13 @@ class DetectionWorker(QThread):
 
     def run(self):
         try:
+            print("DEBUG: DetectionWorker started", flush=True)
             from core import omniparser_bridge
             candidates = omniparser_bridge.detect_elements(self.image, self.yolo, self.caption)
+            print(f"DEBUG: DetectionWorker finished, found {len(candidates)} candidates", flush=True)
             self.finished.emit(candidates)
         except Exception as e:
+            print(f"DEBUG ERROR in DetectionWorker: {e}", flush=True)
             self.error.emit(str(e))
 
 
@@ -55,6 +59,7 @@ class MainWindow(QMainWindow):
         self._expecting_scrollbar_target = False
 
         self._setup_ui()
+        print("DEBUG: MainWindow initialized", flush=True)
 
     def _setup_ui(self):
         root_widget = QWidget()
@@ -189,7 +194,9 @@ class MainWindow(QMainWindow):
         return bool(self._app_name() and self._screen_name())
 
     def _capture(self):
+        print("DEBUG: _capture triggered", flush=True)
         if not self._context_valid():
+            print("DEBUG: Context invalid", flush=True)
             QMessageBox.warning(
                 self,
                 "Contexte manquant",
@@ -199,12 +206,19 @@ class MainWindow(QMainWindow):
             return
 
         monitor_id = self._monitor_combo.currentData() or 1
+        print(f"DEBUG: Selected monitor_id: {monitor_id}", flush=True)
         try:
+            print("DEBUG: Calling screen_capture.capture_monitor", flush=True)
             self._current_image, self._current_resolution = screen_capture.capture_monitor(monitor_id)
-            self._canvas.set_image(self._current_image)
+            print(f"DEBUG: Capture success. Resolution: {self._current_resolution}", flush=True)
 
-            # Restore mapped elements for this specific app::screen context
+            print("DEBUG: Setting image to canvas", flush=True)
+            self._canvas.set_image(self._current_image)
+            print("DEBUG: Image set to canvas", flush=True)
+
+            print("DEBUG: Calling _restore_session", flush=True)
             self._restore_session()
+            print("DEBUG: _restore_session finished", flush=True)
 
             self._detect_btn.setEnabled(True)
             self._statusbar.showMessage(
@@ -212,7 +226,9 @@ class MainWindow(QMainWindow):
                 f"Capture OK — {self._current_resolution[0]}×{self._current_resolution[1]}"
             )
         except Exception as e:
-            QMessageBox.critical(self, "Erreur capture", str(e))
+            print(f"DEBUG ERROR in _capture: {e}", flush=True)
+            traceback.print_exc()
+            QMessageBox.critical(self, "Erreur capture", f"Détails de l'erreur:\n{e}")
 
     def _restore_session(self):
         """
@@ -220,9 +236,16 @@ class MainWindow(QMainWindow):
         Called after each capture so the correct elements are shown as green overlays.
         """
         try:
+            print(f"DEBUG: Loading session for {self._app_name()}::{self._screen_name()}", flush=True)
             elements = mapping_store.load_session(self._app_name(), self._screen_name())
+            print(f"DEBUG: {len(elements)} elements found", flush=True)
+
             self._mapping_list.load_from_elements(elements)
+            print("DEBUG: Elements loaded to mapping_list", flush=True)
+
             self._canvas.set_mapped_elements(self._mapping_list.get_elements())
+            print("DEBUG: Elements set to canvas", flush=True)
+
             self._export_btn.setEnabled(len(elements) > 0)
             if elements:
                 self._statusbar.showMessage(
@@ -230,6 +253,7 @@ class MainWindow(QMainWindow):
                     f"{len(elements)} élément(s) restaurés"
                 )
         except Exception as e:
+            print(f"DEBUG ERROR in _restore_session: {e}", flush=True)
             self._statusbar.showMessage(f"Erreur restauration session: {e}")
 
     def _detect(self):

@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 from typing import Optional
+import traceback
 
 from core.stable_id import compute_stable_id
 
@@ -23,14 +24,21 @@ def load_corrections() -> dict:
     { "app::screen": { stable_id: {logical_key, ui_type, action, path, bbox_relative, source, ...} } }
     """
     if os.path.exists(CORRECTIONS_FILE):
-        with open(CORRECTIONS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(CORRECTIONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"DEBUG ERROR loading corrections file: {e}", flush=True)
+            return {}
     return {}
 
 
 def save_corrections(corrections: dict) -> None:
-    with open(CORRECTIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(corrections, f, indent=2, ensure_ascii=False)
+    try:
+        with open(CORRECTIONS_FILE, "w", encoding="utf-8") as f:
+            json.dump(corrections, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"DEBUG ERROR saving corrections file: {e}", flush=True)
 
 
 def load_corrections_for(app_name: str, screen_name: str) -> dict:
@@ -117,40 +125,49 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
     Appelé après capture pour restaurer les éléments déjà mappés.
     Entrées sans bbox_relative (ancien format) sont ignorées.
     """
-    context = load_corrections_for(app_name, screen_name)
-    elements = []
-    for sid, data in context.items():
-        bbox = data.get("bbox_relative", {})
-        if not bbox:
-            continue
+    print(f"DEBUG: load_session started for {app_name}::{screen_name}", flush=True)
+    try:
+        context = load_corrections_for(app_name, screen_name)
+        print(f"DEBUG: context loaded, items: {len(context)}", flush=True)
+        elements = []
+        for sid, data in context.items():
+            bbox = data.get("bbox_relative", {})
+            if not bbox:
+                continue
 
-        raw_scroll_cfg = data.get("scroll_config")
-        scroll_cfg = raw_scroll_cfg if isinstance(raw_scroll_cfg, dict) else {}
+            raw_scroll_cfg = data.get("scroll_config")
+            scroll_cfg = raw_scroll_cfg if isinstance(raw_scroll_cfg, dict) else {}
 
-        raw_nav_cfg = data.get("navigation_config")
-        nav_cfg = raw_nav_cfg if isinstance(raw_nav_cfg, dict) else {}
+            raw_nav_cfg = data.get("navigation_config")
+            nav_cfg = raw_nav_cfg if isinstance(raw_nav_cfg, dict) else {}
 
-        element = build_element(
-            bbox_relative=bbox,
-            logical_key=data.get("logical_key", ""),
-            ui_type=data.get("ui_type", ""),
-            action=data.get("action", ""),
-            path=data.get("path", ""),
-            source=data.get("source", "human"),
-            expected_value=data.get("expected_value", ""),
-            scroll_direction=scroll_cfg.get("direction", "down"),
-            scroll_amount=scroll_cfg.get("amount", 1 if data.get("ui_type") == "scroll_area" else 120),
-            drag_target=data.get("drag_target", ""),
-            choices=data.get("choices", []),
-            navigation_target=nav_cfg.get("target_screen", ""),
-            is_scrollable=data.get("is_scrollable", False),
-            scroll_container=data.get("scroll_container"),
-            scroll_strategy=scroll_cfg.get("strategy", "wheel"),
-            scroll_max_attempts=scroll_cfg.get("max_attempts", 8),
-            scrollbar_target=data.get("scrollbar_target"),
-        )
-        elements.append(element)
-    return elements
+            print(f"DEBUG: building element for sid {sid}", flush=True)
+            element = build_element(
+                bbox_relative=bbox,
+                logical_key=data.get("logical_key", ""),
+                ui_type=data.get("ui_type", ""),
+                action=data.get("action", ""),
+                path=data.get("path", ""),
+                source=data.get("source", "human"),
+                expected_value=data.get("expected_value", ""),
+                scroll_direction=scroll_cfg.get("direction", "down"),
+                scroll_amount=scroll_cfg.get("amount", 1 if data.get("ui_type") == "scroll_area" else 120),
+                drag_target=data.get("drag_target", ""),
+                choices=data.get("choices", []),
+                navigation_target=nav_cfg.get("target_screen", ""),
+                is_scrollable=data.get("is_scrollable", False),
+                scroll_container=data.get("scroll_container"),
+                scroll_strategy=scroll_cfg.get("strategy", "wheel"),
+                scroll_max_attempts=scroll_cfg.get("max_attempts", 8),
+                scrollbar_target=data.get("scrollbar_target"),
+            )
+            elements.append(element)
+        print(f"DEBUG: load_session finished, returning {len(elements)} elements", flush=True)
+        return elements
+    except Exception as e:
+        print(f"DEBUG ERROR in load_session: {e}", flush=True)
+        traceback.print_exc()
+        return []
 
 
 # ------------------------------------------------------------------

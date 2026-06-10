@@ -4,7 +4,7 @@ and allow the user to draw/click bboxes.
 """
 
 from PyQt6.QtWidgets import QWidget, QToolTip
-from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen, QCursor, QFont
+from PyQt6.QtGui import QPainter, QPixmap, QColor, QPen, QCursor, QFont, QImage
 from PyQt6.QtCore import Qt, QRect, pyqtSignal, QPoint
 
 
@@ -14,7 +14,7 @@ COLOR_SELECTED = QColor(255, 165, 0, 255)         # Orange
 COLOR_MAPPED = QColor(0, 255, 0, 255)             # Green
 COLOR_DRAW = QColor(255, 69, 0, 255)              # OrangeRed
 COLOR_SAMPLED = QColor(255, 255, 0, 255)          # Yellow for dots
-COLOR_SCROLL_CONTAINER = QColor(150, 150, 255, 255) # Light Blue/Purple
+COLOR_SCROLL_CONTAINER = QColor(100, 100, 255, 255) # Light Blue/Purple
 
 
 class CanvasView(QWidget):
@@ -56,16 +56,37 @@ class CanvasView(QWidget):
     # ------------------------------------------------------------------
 
     def set_image(self, pil_image) -> None:
+        print("DEBUG: CanvasView.set_image start", flush=True)
         if pil_image is None:
             self._pixmap = None
         else:
-            # Convert PIL to QPixmap
-            from PIL.ImageQt import ImageQt
-            qimg = ImageQt(pil_image)
-            self._pixmap = QPixmap.fromImage(qimg)
+            try:
+                # Safer conversion from PIL to QPixmap
+                print("DEBUG: Converting PIL to RGB", flush=True)
+                img_rgb = pil_image.convert("RGB")
+                data = img_rgb.tobytes("raw", "RGB")
+                print(f"DEBUG: Image data size: {len(data)}", flush=True)
+
+                qimg = QImage(data, img_rgb.size[0], img_rgb.get("height", img_rgb.size[1]), QImage.Format.Format_RGB888)
+                print("DEBUG: QImage created", flush=True)
+
+                self._pixmap = QPixmap.fromImage(qimg)
+                print("DEBUG: QPixmap created", flush=True)
+            except Exception as e:
+                print(f"DEBUG ERROR in set_image: {e}", flush=True)
+                # Fallback to older method if available
+                try:
+                    from PIL.ImageQt import ImageQt
+                    qimg = ImageQt(pil_image)
+                    self._pixmap = QPixmap.fromImage(qimg)
+                    print("DEBUG: QPixmap created via ImageQt fallback", flush=True)
+                except Exception as e2:
+                    print(f"DEBUG ERROR in ImageQt fallback: {e2}", flush=True)
+                    self._pixmap = None
 
         self._update_geometry_cache()
         self.update()
+        print("DEBUG: CanvasView.set_image end", flush=True)
 
     def set_candidates(self, candidates: list[dict]) -> None:
         self._candidates = candidates
@@ -169,7 +190,7 @@ class CanvasView(QWidget):
     def _hit_candidate(self, pos: QPoint) -> int | None:
         if not self._show_candidates:
             return None
-        # Iterate backwards to pick the "top-most" (often smallest) bbox first
+        # Iterate backwards to pick the \"top-most\" (often smallest) bbox first
         for i in reversed(range(len(self._candidate_rects))):
             if self._candidate_rects[i].contains(pos):
                 return i
@@ -290,6 +311,7 @@ class CanvasView(QWidget):
                 painter.fillRect(self.rect(), QColor(40, 40, 40))
                 painter.setPen(QColor(150, 150, 150))
                 painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Capture un écran pour commencer")
+                painter.end()
                 return
 
             # Draw image
