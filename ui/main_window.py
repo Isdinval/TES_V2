@@ -39,13 +39,13 @@ class DetectionWorker(QThread):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, yolo=None, caption=None):
+    def __init__(self, yolo_model=None, caption_model_processor=None):
         super().__init__()
         self.setWindowTitle("TES V2 - Precision Element Mapping")
         self.resize(1280, 850)
 
-        self._yolo = yolo
-        self._caption = caption
+        self._yolo = yolo_model
+        self._caption = caption_model_processor
         self._current_image: Image.Image | None = None
         self._current_resolution: tuple[int, int] = (0, 0)
 
