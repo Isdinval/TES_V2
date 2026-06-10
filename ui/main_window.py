@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QStatusBar, QMessageBox, QFileDialog, QProgressBar, QLabel
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QCursor
 
 from core import screen_capture, mapping_store
 from ui.canvas_view import CanvasView
@@ -291,7 +292,7 @@ class MainWindow(QMainWindow):
         if self._expecting_scroll_container:
             self._form.set_scroll_container(bbox)
             self._expecting_scroll_container = False
-            self._canvas.setCursor(Qt.CursorShape.ArrowCursor)
+            self._canvas.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
             self._canvas.set_active_overlays(self._form._scroll_container, self._form._scrollbar_target)
             return
 
@@ -340,7 +341,7 @@ class MainWindow(QMainWindow):
 
     def _on_scroll_container_requested(self):
         self._expecting_scroll_container = True
-        self._canvas.setCursor(Qt.CursorShape.CrossCursor)
+        self._canvas.setCursor(QCursor(Qt.CursorShape.CrossCursor))
         self._statusbar.showMessage("Dessine la ZONE de scroll sur le canvas...")
 
     def _on_scrollbar_target_requested(self):

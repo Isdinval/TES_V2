@@ -1,17 +1,31 @@
 import sys
 import os
+import traceback
 
 # Add project root to path so 'core' and 'ui' are importable
 sys.path.insert(0, os.path.dirname(__file__))
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import Qt
 
 from ui.main_window import MainWindow
 from core.omniparser_bridge import load_models
 
 
+def exception_hook(exctype, value, tb):
+    """Global hook to capture fatal errors and show them in a message box."""
+    err_msg = "".join(traceback.format_exception(exctype, value, tb))
+    print(err_msg, file=sys.stderr)
+
+    # Try to show a message box if QApplication exists
+    if QApplication.instance():
+        QMessageBox.critical(None, "Fatal Error", f"The application crashed:\n\n{err_msg}")
+    sys.exit(1)
+
+
 def main():
+    sys.excepthook = exception_hook
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 

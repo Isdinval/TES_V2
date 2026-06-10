@@ -128,7 +128,7 @@ class CanvasView(QWidget):
         # 2. Candidates rects
         self._candidate_rects = []
         for c in self._candidates:
-            rx, ry, rw, rh = c["x"], c["y"], c["w"], c["h"]
+            rx, ry, rw, rh = c.get("x", 0), c.get("y", 0), c.get("w", 0), c.get("h", 0)
             rect = QRect(
                 ir.x() + int(rx * ir.width()),
                 ir.y() + int(ry * ir.height()),
@@ -280,110 +280,117 @@ class CanvasView(QWidget):
     # ------------------------------------------------------------------
 
     def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        try:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        ir = self._cached_image_rect
+            ir = self._cached_image_rect
 
-        if self._pixmap is None:
-            painter.fillRect(self.rect(), QColor(40, 40, 40))
-            painter.setPen(QColor(150, 150, 150))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Capture un écran pour commencer")
-            return
+            if self._pixmap is None:
+                painter.fillRect(self.rect(), QColor(40, 40, 40))
+                painter.setPen(QColor(150, 150, 150))
+                painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Capture un écran pour commencer")
+                return
 
-        # Draw image
-        painter.drawPixmap(ir, self._pixmap)
+            # Draw image
+            painter.drawPixmap(ir, self._pixmap)
 
-        # Draw mapped elements (always green)
-        for i, el in enumerate(self._mapped_elements):
-            rect = self._mapped_rects[i]
-            base_color = COLOR_MAPPED
+            # Draw mapped elements (always green)
+            for i, el in enumerate(self._mapped_elements):
+                if i >= len(self._mapped_rects): break
+                rect = self._mapped_rects[i]
+                base_color = COLOR_MAPPED
 
-            painter.setPen(QPen(base_color, 2))
-            painter.fillRect(rect, QColor(base_color.red(), base_color.green(), base_color.blue(), 30))
-            painter.drawRect(rect)
-
-            # Draw scroll container if present
-            sc = el.get("scroll_container")
-            if sc and "bbox_relative" in sc:
-                sc_bbox = sc["bbox_relative"]
-                sc_rect = self._rel_to_screen(sc_bbox["x"], sc_bbox["y"], sc_bbox["w"], sc_bbox["h"])
-                painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 2, Qt.PenStyle.DashLine))
-                painter.drawRect(sc_rect)
-
-            # Draw scrollbar target if present
-            sb = el.get("scrollbar_target")
-            if sb:
-                sb_pos = self._rel_to_screen(sb["x"], sb["y"])
-                painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 2))
-                painter.setBrush(COLOR_SCROLL_CONTAINER)
-                painter.drawEllipse(sb_pos.topLeft(), 4, 4)
-
-            # Draw ALL click targets permanently (yellow dots)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(COLOR_SAMPLED)
-
-            target = el.get("click_target")
-            if target:
-                t_pos = self._rel_to_screen(target["x"], target["y"])
-                painter.drawEllipse(t_pos.topLeft(), 3, 3)
-
-            for choice in el.get("choices", []):
-                if choice.get("x") is not None:
-                    c_pos = self._rel_to_screen(choice["x"], choice["y"])
-                    painter.drawEllipse(c_pos.topLeft(), 3, 3)
-                    # Display scroll step if > 0
-                    step = choice.get("scroll_steps", 0)
-                    if step > 0:
-                        painter.setPen(QPen(Qt.GlobalColor.white))
-                        painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
-                        painter.drawText(c_pos.topLeft() + QPoint(5, 0), str(step))
-
-        # Draw active overlays (being edited)
-        if self._active_scroll_container:
-            sc_bbox = self._active_scroll_container
-            if "bbox_relative" in sc_bbox: sc_bbox = sc_bbox["bbox_relative"]
-            sc_rect = self._rel_to_screen(sc_bbox["x"], sc_bbox["y"], sc_bbox["w"], sc_bbox["h"])
-            painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 3, Qt.PenStyle.DashLine))
-            painter.drawRect(sc_rect)
-
-        if self._active_scrollbar_target:
-            sb = self._active_scrollbar_target
-            sb_pos = self._rel_to_screen(sb["x"], sb["y"])
-            painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 3))
-            painter.setBrush(COLOR_SCROLL_CONTAINER)
-            painter.drawEllipse(sb_pos.topLeft(), 6, 6)
-
-        # Draw candidates (YOLO)
-        if self._show_candidates:
-            for i, rect in enumerate(self._candidate_rects):
-                if i == self._selected_idx:
-                    color = COLOR_SELECTED
-                    pen_width = 2
-                elif i == self._hover_idx:
-                    color = COLOR_CANDIDATE_HOVER
-                    pen_width = 2
-                else:
-                    color = COLOR_CANDIDATE
-                    pen_width = 1
-
-                painter.setPen(QPen(color, pen_width))
-                # Yellow transparent interior
-                painter.fillRect(rect, QColor(255, 255, 0, 40))
+                painter.setPen(QPen(base_color, 2))
+                painter.fillRect(rect, QColor(base_color.red(), base_color.green(), base_color.blue(), 30))
                 painter.drawRect(rect)
 
-        # Draw currently sampling points (yellow circles)
-        painter.setPen(QPen(COLOR_SAMPLED, 2))
-        painter.setBrush(COLOR_SAMPLED)
-        for p in self._sampled_points:
-            pos = self._rel_to_screen(p["x"], p["y"])
-            painter.drawEllipse(pos.topLeft(), 5, 5)
+                # Draw scroll container if present
+                sc = el.get("scroll_container")
+                if sc and isinstance(sc, dict):
+                    sc_bbox = sc.get("bbox_relative")
+                    if sc_bbox and isinstance(sc_bbox, dict):
+                        sc_rect = self._rel_to_screen(sc_bbox.get("x", 0), sc_bbox.get("y", 0), sc_bbox.get("w", 0), sc_bbox.get("h", 0))
+                        painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 2, Qt.PenStyle.DashLine))
+                        painter.drawRect(sc_rect)
 
-        # Live draw rect
-        if self._drawing and self._draw_start and self._draw_end:
-            draw_rect = QRect(self._draw_start, self._draw_end).normalized()
-            painter.setPen(QPen(COLOR_DRAW, 2, Qt.PenStyle.DashLine))
-            painter.fillRect(draw_rect, QColor(255, 69, 0, 30))
-            painter.drawRect(draw_rect)
+                # Draw scrollbar target if present
+                sb = el.get("scrollbar_target")
+                if sb and isinstance(sb, dict):
+                    sb_pos = self._rel_to_screen(sb.get("x", 0), sb.get("y", 0))
+                    painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 2))
+                    painter.setBrush(COLOR_SCROLL_CONTAINER)
+                    painter.drawEllipse(sb_pos.topLeft(), 4, 4)
 
-        painter.end()
+                # Draw ALL click targets permanently (yellow dots)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(COLOR_SAMPLED)
+
+                target = el.get("click_target")
+                if target and isinstance(target, dict):
+                    t_pos = self._rel_to_screen(target.get("x", 0), target.get("y", 0))
+                    painter.drawEllipse(t_pos.topLeft(), 3, 3)
+
+                for choice in el.get("choices", []):
+                    if choice.get("x") is not None and choice.get("y") is not None:
+                        c_pos = self._rel_to_screen(choice["x"], choice["y"])
+                        painter.drawEllipse(c_pos.topLeft(), 3, 3)
+                        # Display scroll step if > 0
+                        step = choice.get("scroll_steps", 0)
+                        if step > 0:
+                            painter.setPen(QPen(QColor(255, 255, 255)))
+                            painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
+                            painter.drawText(c_pos.topLeft() + QPoint(5, 0), str(step))
+
+            # Draw active overlays (being edited)
+            if self._active_scroll_container and isinstance(self._active_scroll_container, dict):
+                sc_bbox = self._active_scroll_container
+                if "bbox_relative" in sc_bbox: sc_bbox = sc_bbox["bbox_relative"]
+                if isinstance(sc_bbox, dict):
+                    sc_rect = self._rel_to_screen(sc_bbox.get("x", 0), sc_bbox.get("y", 0), sc_bbox.get("w", 0), sc_bbox.get("h", 0))
+                    painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 3, Qt.PenStyle.DashLine))
+                    painter.drawRect(sc_rect)
+
+            if self._active_scrollbar_target and isinstance(self._active_scrollbar_target, dict):
+                sb = self._active_scrollbar_target
+                sb_pos = self._rel_to_screen(sb.get("x", 0), sb.get("y", 0))
+                painter.setPen(QPen(COLOR_SCROLL_CONTAINER, 3))
+                painter.setBrush(COLOR_SCROLL_CONTAINER)
+                painter.drawEllipse(sb_pos.topLeft(), 6, 6)
+
+            # Draw candidates (YOLO)
+            if self._show_candidates:
+                for i, rect in enumerate(self._candidate_rects):
+                    if i == self._selected_idx:
+                        color = COLOR_SELECTED
+                        pen_width = 2
+                    elif i == self._hover_idx:
+                        color = COLOR_CANDIDATE_HOVER
+                        pen_width = 2
+                    else:
+                        color = COLOR_CANDIDATE
+                        pen_width = 1
+
+                    painter.setPen(QPen(color, pen_width))
+                    # Yellow transparent interior
+                    painter.fillRect(rect, QColor(255, 255, 0, 40))
+                    painter.drawRect(rect)
+
+            # Draw currently sampling points (yellow circles)
+            painter.setPen(QPen(COLOR_SAMPLED, 2))
+            painter.setBrush(COLOR_SAMPLED)
+            for p in self._sampled_points:
+                if p.get("x") is not None and p.get("y") is not None:
+                    pos = self._rel_to_screen(p["x"], p["y"])
+                    painter.drawEllipse(pos.topLeft(), 5, 5)
+
+            # Live draw rect
+            if self._drawing and self._draw_start and self._draw_end:
+                draw_rect = QRect(self._draw_start, self._draw_end).normalized()
+                painter.setPen(QPen(COLOR_DRAW, 2, Qt.PenStyle.DashLine))
+                painter.fillRect(draw_rect, QColor(255, 69, 0, 30))
+                painter.drawRect(draw_rect)
+
+            painter.end()
+        except Exception as e:
+            print(f"Error in CanvasView.paintEvent: {e}")

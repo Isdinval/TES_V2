@@ -124,8 +124,11 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
         if not bbox:
             continue
 
-        scroll_cfg = data.get("scroll_config", {})
-        nav_cfg = data.get("navigation_config", {})
+        raw_scroll_cfg = data.get("scroll_config")
+        scroll_cfg = raw_scroll_cfg if isinstance(raw_scroll_cfg, dict) else {}
+
+        raw_nav_cfg = data.get("navigation_config")
+        nav_cfg = raw_nav_cfg if isinstance(raw_nav_cfg, dict) else {}
 
         element = build_element(
             bbox_relative=bbox,
@@ -139,7 +142,7 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             scroll_amount=scroll_cfg.get("amount", 1 if data.get("ui_type") == "scroll_area" else 120),
             drag_target=data.get("drag_target", ""),
             choices=data.get("choices", []),
-            navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
+            navigation_target=nav_cfg.get("target_screen", ""),
             is_scrollable=data.get("is_scrollable", False),
             scroll_container=data.get("scroll_container"),
             scroll_strategy=scroll_cfg.get("strategy", "wheel"),
