@@ -4,8 +4,9 @@ MainWindow: orchestration of the application.
 
 from __future__ import annotations
 import os
-from PIL import Image
 import sys
+import traceback
+from PIL import Image
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -225,6 +226,7 @@ class MainWindow(QMainWindow):
                 f"[{self._app_name()}::{self._screen_name()}] "
                 f"Capture OK — {self._current_resolution[0]}×{self._current_resolution[1]}"
             )
+            print("DEBUG: _capture end of success path", flush=True)
         except Exception as e:
             print(f"DEBUG ERROR in _capture: {e}", flush=True)
             traceback.print_exc()

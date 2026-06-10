@@ -61,20 +61,21 @@ class CanvasView(QWidget):
             self._pixmap = None
         else:
             try:
-                # Safer conversion from PIL to QPixmap
-                print("DEBUG: Converting PIL to RGB", flush=True)
-                img_rgb = pil_image.convert("RGB")
-                data = img_rgb.tobytes("raw", "RGB")
-                print(f"DEBUG: Image data size: {len(data)}", flush=True)
+                # Optimized and safer conversion
+                print("DEBUG: Converting PIL to RGBA", flush=True)
+                img_rgba = pil_image.convert("RGBA")
+                data = img_rgba.tobytes("raw", "RGBA")
 
-                qimg = QImage(data, img_rgb.size[0], img_rgb.get("height", img_rgb.size[1]), QImage.Format.Format_RGB888)
-                print("DEBUG: QImage created", flush=True)
+                # IMPORTANT: QImage constructor using data buffer is dangerous if data is GC-ed.
+                # We create the QImage and immediately call .copy() to own the buffer.
+                qimg = QImage(data, img_rgba.width, img_rgba.height, QImage.Format.Format_RGBA8888).copy()
+                print("DEBUG: QImage created and copied", flush=True)
 
                 self._pixmap = QPixmap.fromImage(qimg)
                 print("DEBUG: QPixmap created", flush=True)
             except Exception as e:
                 print(f"DEBUG ERROR in set_image: {e}", flush=True)
-                # Fallback to older method if available
+                # Fallback
                 try:
                     from PIL.ImageQt import ImageQt
                     qimg = ImageQt(pil_image)
