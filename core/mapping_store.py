@@ -92,6 +92,12 @@ def update_corrections(
                 data["drag_target"] = el["drag_target"]
             if "choices" in el:
                 data["choices"] = el["choices"]
+            if "is_scrollable" in el:
+                data["is_scrollable"] = el["is_scrollable"]
+            if "scroll_container" in el:
+                data["scroll_container"] = el["scroll_container"]
+            if "scrollbar_target" in el:
+                data["scrollbar_target"] = el["scrollbar_target"]
             if "navigation_config" in el:
                 data["navigation_config"] = el["navigation_config"]
 
@@ -130,10 +136,15 @@ def load_session(app_name: str, screen_name: str) -> list[dict]:
             source=data.get("source", "human"),
             expected_value=data.get("expected_value", ""),
             scroll_direction=scroll_cfg.get("direction", "down"),
-            scroll_amount=scroll_cfg.get("amount", 1),
+            scroll_amount=scroll_cfg.get("amount", 1 if data.get("ui_type") == "scroll_area" else 120),
             drag_target=data.get("drag_target", ""),
             choices=data.get("choices", []),
             navigation_target=nav_cfg.get("target_screen", "") if nav_cfg else "",
+            is_scrollable=data.get("is_scrollable", False),
+            scroll_container=data.get("scroll_container"),
+            scroll_strategy=scroll_cfg.get("strategy", "wheel"),
+            scroll_max_attempts=scroll_cfg.get("max_attempts", 8),
+            scrollbar_target=data.get("scrollbar_target"),
         )
         elements.append(element)
     return elements
@@ -198,6 +209,11 @@ def build_element(
     drag_target: str = "",
     choices: Optional[list[dict]] = None,
     navigation_target: str = "",
+    is_scrollable: bool = False,
+    scroll_container: Optional[dict] = None,
+    scroll_strategy: str = "wheel",
+    scroll_max_attempts: int = 8,
+    scrollbar_target: Optional[dict] = None,
 ) -> dict:
     sid = compute_stable_id(bbox_relative)
 
@@ -229,6 +245,19 @@ def build_element(
             element["expected_value"] = expected_value
         if choices:
             element["choices"] = choices
+
+        if is_scrollable:
+            element["is_scrollable"] = True
+            element["scroll_config"] = {
+                "strategy": scroll_strategy,
+                "amount": scroll_amount,
+                "max_attempts": scroll_max_attempts,
+                "direction": scroll_direction
+            }
+            if scroll_container:
+                element["scroll_container"] = scroll_container
+            if scrollbar_target:
+                element["scrollbar_target"] = scrollbar_target
 
     if ui_type == "button" and navigation_target:
         element["navigation_config"] = {
