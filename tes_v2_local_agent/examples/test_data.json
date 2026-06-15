@@ -1,0 +1,18 @@
+[
+  {
+    "auth": {
+      "username": "jules_agent",
+      "password": "secret_password"
+    },
+    "user_role": "Admin",
+    "dashboard_check": "Welcome back"
+  },
+  {
+    "auth": {
+      "username": "test_user",
+      "password": "another_password"
+    },
+    "user_role": "User",
+    "dashboard_check": "Welcome back"
+  }
+]

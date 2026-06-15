@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "app": "DummyApp",
+    "screen": "Login",
+    "created_at": "2023-10-27T10:00:00",
+    "resolution": [1920, 1080]
+  },
+  "elements": [
+    {
+      "stable_id": "user_id",
+      "logical_key": "auth.username",
+      "ui_type": "input",
+      "action": "type",
+      "bbox_relative": {"x": 0.4, "y": 0.4, "w": 0.2, "h": 0.05},
+      "click_target": {"x": 0.5, "y": 0.425},
+      "source": "human"
+    },
+    {
+      "stable_id": "pass_id",
+      "logical_key": "auth.password",
+      "ui_type": "input",
+      "action": "type",
+      "bbox_relative": {"x": 0.4, "y": 0.5, "w": 0.2, "h": 0.05},
+      "click_target": {"x": 0.5, "y": 0.525},
+      "source": "human"
+    },
+    {
+      "stable_id": "role_id",
+      "logical_key": "user_role",
+      "ui_type": "dropdown",
+      "action": "select",
+      "bbox_relative": {"x": 0.4, "y": 0.6, "w": 0.2, "h": 0.05},
+      "click_target": {"x": 0.5, "y": 0.625},
+      "source": "human",
+      "choices": [
+        {"label": "Admin", "x": 0.5, "y": 0.68},
+        {"label": "User", "x": 0.5, "y": 0.72}
+      ]
+    },
+    {
+      "stable_id": "btn_login",
+      "logical_key": "login_button",
+      "ui_type": "button",
+      "action": "click",
+      "bbox_relative": {"x": 0.45, "y": 0.75, "w": 0.1, "h": 0.05},
+      "click_target": {"x": 0.5, "y": 0.775},
+      "source": "human",
+      "navigation_config": {"target_screen": "Dashboard"}
+    }
+  ]
+}
