@@ -1,0 +1,84 @@
+[
+  {
+    "record_index": 0,
+    "start_time": "2026-06-15T19:23:37.278234",
+    "screens": [
+      {
+        "screen_name": "Login",
+        "actions": [
+          {
+            "logical_key": "auth.username",
+            "value": "jules_agent",
+            "status": "success"
+          },
+          {
+            "logical_key": "auth.password",
+            "value": "secret_password",
+            "status": "success"
+          },
+          {
+            "logical_key": "user_role",
+            "value": "Admin",
+            "status": "success"
+          }
+        ],
+        "status": "navigated"
+      },
+      {
+        "screen_name": "Dashboard",
+        "actions": [
+          {
+            "logical_key": "dashboard_check",
+            "value": "Welcome back",
+            "status": "success"
+          }
+        ],
+        "status": "filled"
+      }
+    ],
+    "status": "success",
+    "error": null,
+    "end_time": "2026-06-15T19:23:37.280205"
+  },
+  {
+    "record_index": 1,
+    "start_time": "2026-06-15T19:23:37.280265",
+    "screens": [
+      {
+        "screen_name": "Login",
+        "actions": [
+          {
+            "logical_key": "auth.username",
+            "value": "test_user",
+            "status": "success"
+          },
+          {
+            "logical_key": "auth.password",
+            "value": "another_password",
+            "status": "success"
+          },
+          {
+            "logical_key": "user_role",
+            "value": "User",
+            "status": "success"
+          }
+        ],
+        "status": "navigated"
+      },
+      {
+        "screen_name": "Dashboard",
+        "actions": [
+          {
+            "logical_key": "dashboard_check",
+            "value": "Welcome back",
+            "status": "success"
+          }
+        ],
+        "status": "filled"
+      }
+    ],
+    "status": "success",
+    "error": null,
+    "end_time": "2026-06-15T19:23:37.281254"
+  }
+]
