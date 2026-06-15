@@ -27,7 +27,20 @@ pip install pyautogui opencv-python pydantic pandas openpyxl loguru rich imageha
 
 ## 📖 Utilisation
 
-Lancez l'agent via le module `main.py` :
+### Sur Windows (CMD) :
+Utilisez le caractère `^` pour le retour à la ligne ou mettez tout sur une seule ligne :
+
+```cmd
+python -m tes_v2_local_agent.main ^
+  --data data/source.xlsx ^
+  --scenario Login,Dashboard,FicheClient ^
+  --mappings mappings/ ^
+  --refs reference_screenshots/ ^
+  --dry-run
+```
+
+### Sur Linux / Mac / PowerShell / Git Bash :
+Utilisez le caractère `\` :
 
 ```bash
 python -m tes_v2_local_agent.main \
