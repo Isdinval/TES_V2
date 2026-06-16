@@ -23,24 +23,30 @@ class DataMapper:
         logger.debug(f"Mapping record to screen: {screen_mapping.meta.screen}")
         mapped_actions = []
 
+        VAL_LESS_TYPES = ("button", "icon", "tab", "menu_item", "toggle", "scroll_area", "drag_handle", "label")
+
         for field in screen_mapping.elements:
-            # Buttons and navigation elements often don't need data
-            if field.ui_type == "button" or field.navigation_config:
+            # Navigation elements are special - they are NOT part of the data filling sequence
+            # but are handled by the Navigator to move between screens.
+            if field.navigation_config:
                 continue
 
             value = self.get_nested_value(record, field.logical_key)
 
             if value is None:
-                # Check if it was explicitly None in the record (if not nested)
+                if field.ui_type in VAL_LESS_TYPES:
+                    mapped_actions.append((field, None))
+                    continue
+
                 if '.' not in field.logical_key and field.logical_key in record:
-                    pass
+                    mapped_actions.append((field, value))
                 else:
                     logger.warning(f"Key '{field.logical_key}' not found in record for screen '{screen_mapping.meta.screen}'")
                     continue
+            else:
+                mapped_actions.append((field, value))
 
-            mapped_actions.append((field, value))
-
-        # Natural reading order: Sort by Y coordinate then X
+        # Sort by Y then X
         mapped_actions.sort(key=lambda x: (x[0].bbox_relative.y, x[0].bbox_relative.x))
 
         return mapped_actions
