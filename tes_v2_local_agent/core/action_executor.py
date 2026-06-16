@@ -1,33 +1,41 @@
 import pyautogui
 import time
 import random
+import os
 from loguru import logger
 from typing import Any, Optional, List
 from tes_v2_local_agent.models.mapping import FieldMapping, ClickTarget, Choice
 from tes_v2_local_agent.utils.retry import retry
 
 class ActionExecutor:
-    def __init__(self, resolution: tuple[int, int], dry_run: bool = False):
-        self.res_w, self.res_h = resolution
+    def __init__(self, resolution: Optional[tuple[int, int]] = None, dry_run: bool = False):
+        # We always want the CURRENT screen resolution for absolute clicks
+        self.curr_w, self.curr_h = pyautogui.size()
+
+        # If a resolution was provided (from mapping), we store it but
+        # we'll use the current one for actual scaling if we assume
+        # the app scales with the screen.
+        self.mapping_res = resolution
+
         self.dry_run = dry_run
         if not dry_run:
-            pyautogui.PAUSE = 0.5
+            pyautogui.PAUSE = 0.2
             pyautogui.FAILSAFE = True
-        logger.info(f"ActionExecutor initialized (Res: {resolution}, Dry Run: {dry_run})")
+        logger.info(f"ActionExecutor initialized (Current Res: {self.curr_w}x{self.curr_h}, Mapping Res: {resolution}, Dry Run: {dry_run})")
 
-    def _human_delay(self, min_s=0.3, max_s=0.8):
+    def _human_delay(self, min_s=0.1, max_s=0.3):
         if not self.dry_run:
             time.sleep(random.uniform(min_s, max_s))
 
     def _get_abs_coords(self, rel_x: float, rel_y: float) -> tuple[int, int]:
-        # Add a tiny random offset (1-3 pixels) for anti-bot
-        offset_x = random.randint(-2, 2)
-        offset_y = random.randint(-2, 2)
-        return int(rel_x * self.res_w) + offset_x, int(rel_y * self.res_h) + offset_y
+        # Use round() for better precision than int()
+        return int(round(rel_x * self.curr_w)), int(round(rel_y * self.curr_h))
 
     def execute_action(self, field: FieldMapping, value: Any):
-        if value is None or value == "":
-            logger.debug(f"Skipping empty value for field {field.logical_key}")
+        VAL_LESS_TYPES = ("button", "icon", "tab", "menu_item", "toggle", "scroll_area", "drag_handle")
+
+        if (value is None or value == "") and field.ui_type not in VAL_LESS_TYPES:
+            logger.debug(f"Skipping field {field.logical_key} (Type: {field.ui_type}) because value is empty")
             return
 
         msg = f"Action '{field.action}' on field '{field.logical_key}' (Type: {field.ui_type}) with value '{value}'"
@@ -44,7 +52,6 @@ class ActionExecutor:
 
     @retry(Exception, tries=3, delay=1, backoff=2)
     def _execute_with_retry(self, field: FieldMapping, value: Any):
-        # Determine main click target
         target = field.click_target
         if not target:
             target = ClickTarget(
@@ -53,110 +60,128 @@ class ActionExecutor:
             )
 
         abs_x, abs_y = self._get_abs_coords(target.x, target.y)
+        action = field.action.lower() if field.action else "click"
+        ui_type = field.ui_type.lower()
 
-        # UI Type specific logic
-        ut = field.ui_type
-        if ut in ("input", "textarea", "date"):
-            self.fill_text(abs_x, abs_y, str(value))
-        elif ut == "button":
+        if action in ("click", "select") and value:
+            if ui_type == "radio":
+                self.handle_radio(field, value)
+                return
+            elif ui_type == "dropdown":
+                self.handle_dropdown(field, value)
+                return
+
+        if action == "click":
             self.click(abs_x, abs_y)
-        elif ut == "checkbox":
-            self.handle_checkbox(abs_x, abs_y, value)
-        elif ut == "radio":
-            self.handle_radio(field, value)
-        elif ut == "dropdown":
-            self.handle_dropdown(field, value)
-        elif ut == "scroll_area":
+        elif action == "double_click":
+            self.click(abs_x, abs_y, clicks=2)
+        elif action == "right_click":
+            self.right_click(abs_x, abs_y)
+        elif action == "triple_click":
+            self.click(abs_x, abs_y, clicks=3)
+        elif action == "hover":
+            self.hover(abs_x, abs_y)
+        elif action in ("click_then_type", "type"):
+            self.fill_text(abs_x, abs_y, str(value))
+        elif action == "triple_click_then_type":
+            self.fill_text(abs_x, abs_y, str(value), triple=True)
+        elif action in ("check", "uncheck"):
+            self.click(abs_x, abs_y)
+        elif action == "scroll":
             self.scroll(field)
-        elif ut == "file_upload":
-            self.handle_file_upload(abs_x, abs_y, str(value))
+        elif action == "drag":
+            self.drag(field)
+        elif action == "none":
+            logger.debug(f"Action 'none' for {field.logical_key}")
         else:
-            logger.warning(f"UI Type '{ut}' is unhandled, attempting generic click")
+            logger.warning(f"Action '{action}' is unhandled, attempting generic click")
             self.click(abs_x, abs_y)
 
     def click(self, x: int, y: int, clicks=1):
         self._human_delay()
-        duration = random.uniform(0.3, 0.6)
-        pyautogui.moveTo(x, y, duration=duration, tween=pyautogui.easeInOutQuad)
+        # Move slightly faster for better reliability
+        pyautogui.moveTo(x, y, duration=0.15)
         pyautogui.click(clicks=clicks)
 
-    def fill_text(self, x: int, y: int, text: str):
-        self.click(x, y)
-        # Force focus / select all
-        pyautogui.hotkey('ctrl', 'a')
-        pyautogui.press('backspace')
-        self._human_delay(0.1, 0.3)
-        # Type with slight variations in interval
-        pyautogui.write(text, interval=random.uniform(0.02, 0.08))
-        pyautogui.press('enter')
+    def right_click(self, x: int, y: int):
+        self._human_delay()
+        pyautogui.moveTo(x, y, duration=0.15)
+        pyautogui.rightClick()
 
-    def handle_checkbox(self, x: int, y: int, value: Any):
-        # In V1, we assume 'value' means 'should be checked'
-        if bool(value):
+    def hover(self, x: int, y: int):
+        self._human_delay()
+        pyautogui.moveTo(x, y, duration=0.15)
+
+    def fill_text(self, x: int, y: int, text: str, triple=False):
+        if triple:
+            self.click(x, y, clicks=3)
+        else:
             self.click(x, y)
+            pyautogui.hotkey('ctrl', 'a')
+
+        self._human_delay(0.05, 0.1)
+        pyautogui.press('backspace')
+        self._human_delay(0.05, 0.1)
+        pyautogui.write(text, interval=0.01)
 
     def handle_radio(self, field: FieldMapping, value: str):
         if not field.choices:
             logger.warning(f"No choices for radio {field.logical_key}, clicking main target")
-            abs_x, abs_y = self._get_abs_coords(field.click_target.x, field.click_target.y)
+            target = field.click_target or ClickTarget(
+                x=field.bbox_relative.x + field.bbox_relative.w / 2,
+                y=field.bbox_relative.y + field.bbox_relative.h / 2
+            )
+            abs_x, abs_y = self._get_abs_coords(target.x, target.y)
             self.click(abs_x, abs_y)
             return
 
         choice = self._find_choice(field.choices, str(value))
         if choice:
             cx, cy = self._get_abs_coords(choice.x, choice.y)
+            logger.info(f"Selecting radio choice '{value}' at ({cx}, {cy})")
             self.click(cx, cy)
         else:
+            available = [c.label for c in field.choices]
+            logger.error(f"Radio choice '{value}' not found for {field.logical_key}. Available: {available}")
             raise ValueError(f"Radio choice '{value}' not found for {field.logical_key}")
 
     def handle_dropdown(self, field: FieldMapping, value: str):
-        # 1. Open dropdown
-        abs_x, abs_y = self._get_abs_coords(field.click_target.x, field.click_target.y)
+        target = field.click_target or ClickTarget(
+            x=field.bbox_relative.x + field.bbox_relative.w / 2,
+            y=field.bbox_relative.y + field.bbox_relative.h / 2
+        )
+        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
         self.click(abs_x, abs_y)
-        self._human_delay(0.5, 1.0) # Wait for animation
+        self._human_delay(0.4, 0.6)
 
-        # 2. Select choice
         if field.choices:
             choice = self._find_choice(field.choices, str(value))
             if choice:
                 cx, cy = self._get_abs_coords(choice.x, choice.y)
+                logger.info(f"Selecting dropdown choice '{value}' at ({cx}, {cy})")
                 self.click(cx, cy)
             else:
-                # Fallback: try typing the value to filter or select (depends on UI)
                 pyautogui.write(str(value))
                 pyautogui.press('enter')
         else:
-            # No choices mapped, try typing
             pyautogui.write(str(value))
             pyautogui.press('enter')
-
-    def handle_file_upload(self, x: int, y: int, file_path: str):
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found for upload: {file_path}")
-
-        # Click the upload button to open dialog
-        self.click(x, y)
-        self._human_delay(1.0, 2.0) # Wait for dialog
-
-        # Type path and enter (works on most Windows/Linux dialogs)
-        pyautogui.write(file_path)
-        pyautogui.press('enter')
 
     def scroll(self, field: FieldMapping):
         if not field.scroll_config:
             return
-        # Move to center of scroll area first
         abs_x, abs_y = self._get_abs_coords(
             field.bbox_relative.x + field.bbox_relative.w / 2,
             field.bbox_relative.y + field.bbox_relative.h / 2
         )
-        pyautogui.moveTo(abs_x, abs_y, duration=0.3)
-
+        pyautogui.moveTo(abs_x, abs_y, duration=0.15)
         clicks = field.scroll_config.amount * (-1 if field.scroll_config.direction == "down" else 1)
         pyautogui.scroll(clicks)
 
+    def drag(self, field: FieldMapping):
+        logger.warning(f"Drag action not fully implemented for {field.logical_key}")
+
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:
-        # Simple exact match or case-insensitive
         for c in choices:
             if c.label.strip().lower() == label.strip().lower():
                 return c
