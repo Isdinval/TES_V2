@@ -9,14 +9,8 @@ from tes_v2_local_agent.utils.retry import retry
 
 class ActionExecutor:
     def __init__(self, resolution: Optional[tuple[int, int]] = None, dry_run: bool = False):
-        # We always want the CURRENT screen resolution for absolute clicks
         self.curr_w, self.curr_h = pyautogui.size()
-
-        # If a resolution was provided (from mapping), we store it but
-        # we'll use the current one for actual scaling if we assume
-        # the app scales with the screen.
         self.mapping_res = resolution
-
         self.dry_run = dry_run
         if not dry_run:
             pyautogui.PAUSE = 0.2
@@ -28,17 +22,23 @@ class ActionExecutor:
             time.sleep(random.uniform(min_s, max_s))
 
     def _get_abs_coords(self, rel_x: float, rel_y: float) -> tuple[int, int]:
-        # Use round() for better precision than int()
         return int(round(rel_x * self.curr_w)), int(round(rel_y * self.curr_h))
 
     def execute_action(self, field: FieldMapping, value: Any):
-        VAL_LESS_TYPES = ("button", "icon", "tab", "menu_item", "toggle", "scroll_area", "drag_handle")
+        # Valueless types or elements with navigation should ALWAYS be processed
+        VAL_LESS_TYPES = ("button", "icon", "tab", "menu_item", "toggle", "scroll_area", "drag_handle", "label")
 
-        if (value is None or value == "") and field.ui_type not in VAL_LESS_TYPES:
-            logger.debug(f"Skipping field {field.logical_key} (Type: {field.ui_type}) because value is empty")
+        is_nav = field.navigation_config is not None
+        has_value = value is not None and value != ""
+
+        if not has_value and not is_nav and field.ui_type not in VAL_LESS_TYPES:
+            logger.debug(f"Skipping field {field.logical_key} (Type: {field.ui_type}) - no value and not navigation/valueless")
             return
 
         msg = f"Action '{field.action}' on field '{field.logical_key}' (Type: {field.ui_type}) with value '{value}'"
+        if is_nav:
+            msg += f" [NAVIGATION -> {field.navigation_config.target_screen}]"
+
         if self.dry_run:
             logger.info(f"[DRY RUN] {msg}")
             return
@@ -63,14 +63,16 @@ class ActionExecutor:
         action = field.action.lower() if field.action else "click"
         ui_type = field.ui_type.lower()
 
-        if action in ("click", "select") and value:
+        # Prioritize 'select' logic for complex components
+        if action == "select" or (action == "click" and ui_type in ("radio", "dropdown", "date_picker") and value):
             if ui_type == "radio":
                 self.handle_radio(field, value)
                 return
-            elif ui_type == "dropdown":
+            elif ui_type == "dropdown" or ui_type == "date_picker":
                 self.handle_dropdown(field, value)
                 return
 
+        # Action Dispatch
         if action == "click":
             self.click(abs_x, abs_y)
         elif action == "double_click":
@@ -86,6 +88,7 @@ class ActionExecutor:
         elif action == "triple_click_then_type":
             self.fill_text(abs_x, abs_y, str(value), triple=True)
         elif action in ("check", "uncheck"):
+            # Assume click toggles, but we could add logic if we knew state
             self.click(abs_x, abs_y)
         elif action == "scroll":
             self.scroll(field)
@@ -99,7 +102,6 @@ class ActionExecutor:
 
     def click(self, x: int, y: int, clicks=1):
         self._human_delay()
-        # Move slightly faster for better reliability
         pyautogui.moveTo(x, y, duration=0.15)
         pyautogui.click(clicks=clicks)
 
@@ -138,7 +140,6 @@ class ActionExecutor:
         choice = self._find_choice(field.choices, str(value))
         if choice:
             cx, cy = self._get_abs_coords(choice.x, choice.y)
-            logger.info(f"Selecting radio choice '{value}' at ({cx}, {cy})")
             self.click(cx, cy)
         else:
             available = [c.label for c in field.choices]
@@ -158,7 +159,6 @@ class ActionExecutor:
             choice = self._find_choice(field.choices, str(value))
             if choice:
                 cx, cy = self._get_abs_coords(choice.x, choice.y)
-                logger.info(f"Selecting dropdown choice '{value}' at ({cx}, {cy})")
                 self.click(cx, cy)
             else:
                 pyautogui.write(str(value))
@@ -170,16 +170,34 @@ class ActionExecutor:
     def scroll(self, field: FieldMapping):
         if not field.scroll_config:
             return
-        abs_x, abs_y = self._get_abs_coords(
-            field.bbox_relative.x + field.bbox_relative.w / 2,
-            field.bbox_relative.y + field.bbox_relative.h / 2
-        )
-        pyautogui.moveTo(abs_x, abs_y, duration=0.15)
-        clicks = field.scroll_config.amount * (-1 if field.scroll_config.direction == "down" else 1)
-        pyautogui.scroll(clicks)
+
+        strategy = field.scroll_config.strategy or "wheel"
+
+        if strategy == "scrollbar" and field.scrollbar_target:
+            # Click and drag scrollbar? Or just click a point?
+            # V1: Click the scrollbar target point multiple times or once?
+            # Let's assume clicking the target point 'amount' times
+            sx, sy = self._get_abs_coords(field.scrollbar_target['x'], field.scrollbar_target['y'])
+            for _ in range(field.scroll_config.amount):
+                self.click(sx, sy)
+                time.sleep(0.1)
+        else:
+            # Default wheel scroll
+            abs_x, abs_y = self._get_abs_coords(
+                field.bbox_relative.x + field.bbox_relative.w / 2,
+                field.bbox_relative.y + field.bbox_relative.h / 2
+            )
+            pyautogui.moveTo(abs_x, abs_y, duration=0.15)
+            clicks = field.scroll_config.amount * (-1 if field.scroll_config.direction == "down" else 1)
+            # pyautogui.scroll(clicks) often needs large values (e.g. 120 per notch)
+            # In mapping tool, scroll_amount defaults to 120 for wheel.
+            pyautogui.scroll(clicks)
 
     def drag(self, field: FieldMapping):
-        logger.warning(f"Drag action not fully implemented for {field.logical_key}")
+        # We'd need to find the drag target coordinates by logical key.
+        # This requires access to all elements in the screen.
+        # For now, log it.
+        logger.warning(f"Drag action for {field.logical_key} not fully implemented")
 
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:
         for c in choices:
