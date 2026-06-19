@@ -11,6 +11,10 @@ class ClickTarget(BaseModel):
     x: float
     y: float
 
+class LabelAnchor(BaseModel):
+    bbox_relative: BBoxRelative
+    template_path: Optional[str] = None
+
 class ScrollConfig(BaseModel):
     direction: str = "down"
     amount: int = 1
@@ -42,6 +46,11 @@ class FieldMapping(BaseModel):
     scroll_container: Optional[Dict[str, Any]] = None
     scrollbar_target: Optional[Dict[str, Any]] = None
     drag_target: Optional[str] = None
+
+    # Robustness extensions
+    label_anchor: Optional[LabelAnchor] = None
+    search_margin: float = 0.25
+    requires_relocation: bool = True
 
 class ScreenMeta(BaseModel):
     app: str

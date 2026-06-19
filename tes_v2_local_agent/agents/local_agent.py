@@ -6,6 +6,8 @@ import json
 from loguru import logger
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from PIL import Image
+
 from tes_v2_local_agent.core.mapping_loader import MappingLoader
 from tes_v2_local_agent.core.data_loader import DataLoader
 from tes_v2_local_agent.core.data_mapper import DataMapper
@@ -13,6 +15,7 @@ from tes_v2_local_agent.core.screen_detector import ScreenDetector
 from tes_v2_local_agent.core.action_executor import ActionExecutor
 from tes_v2_local_agent.core.navigator import Navigator
 from tes_v2_local_agent.core.popup_handler import PopupHandler
+from tes_v2_local_agent.core.element_locator import ElementLocator
 
 class LocalAgent:
     def __init__(
@@ -20,17 +23,21 @@ class LocalAgent:
         mappings_dir: str,
         ref_images_dir: str,
         popup_refs_dir: Optional[str] = None,
-        dry_run: bool = False
+        dry_run: bool = False,
+        config_path: str = "tes_v2_local_agent/config/default_robustness.yaml"
     ):
         self.mappings_dir = mappings_dir
         self.ref_images_dir = ref_images_dir
         self.popup_refs_dir = popup_refs_dir
         self.dry_run = dry_run
+        self.config_path = config_path
 
         self.mapping_loader = MappingLoader()
         self.data_loader = DataLoader()
         self.data_mapper = DataMapper()
-        self.detector = ScreenDetector(ref_images_dir)
+        self.detector = ScreenDetector(ref_images_dir, config_path=config_path)
+        self.locator = ElementLocator(self.detector, config_path=config_path)
+
         self.executor = None
         self.navigator = None
         self.popup_handler = None
@@ -38,7 +45,7 @@ class LocalAgent:
         self.reports = []
 
     def run_scenario(self, data_file: str, scenario: List[str], start_from_screen: Optional[str] = None):
-        logger.info(f"Starting automation session (Scenario: {scenario}, Dry Run: {self.dry_run})")
+        logger.info(f"Starting robust automation session (Scenario: {scenario}, Dry Run: {self.dry_run})")
         all_data = self.data_loader.load_data(data_file)
 
         for index, record in enumerate(all_data):
@@ -83,15 +90,29 @@ class LocalAgent:
             mapping_path = os.path.join(self.mappings_dir, f"{screen_name}.json")
             mapping = self.mapping_loader.load_screen_mapping(mapping_path)
 
+            # Load reference screenshot for locator
+            ref_screenshot_path = os.path.join(self.ref_images_dir, f"{screen_name}.png")
+            ref_screenshot = Image.open(ref_screenshot_path).convert("RGB") if os.path.exists(ref_screenshot_path) else None
+
             # 2. Lazy Init components
             if not self.executor:
-                self.executor = ActionExecutor(tuple(mapping.meta.resolution), dry_run=self.dry_run)
+                self.executor = ActionExecutor(
+                    tuple(mapping.meta.resolution),
+                    dry_run=self.dry_run,
+                    locator=self.locator
+                )
                 self.navigator = Navigator(self.executor)
                 if self.popup_refs_dir:
                     self.popup_handler = PopupHandler(self.popup_refs_dir, self.executor)
 
+            # Update executor context for the current screen
+            self.executor.set_context(
+                mapping_dir=os.path.dirname(mapping_path),
+                ref_screenshot=ref_screenshot
+            )
+
             # 3. Detect & Wait
-            self._wait_for_screen(screen_name)
+            self._wait_for_screen(screen_name, mapping=mapping)
             screen_report["status"] = "detected"
 
             # 4. Fill
@@ -104,7 +125,7 @@ class LocalAgent:
                 if self.navigate_to(mapping, next_screen):
                     screen_report["status"] = "navigated"
                 else:
-                    logger.warning(f"No navigation link found for {next_screen}, assuming manual transition or end of flow.")
+                    logger.warning(f"No navigation link found for {next_screen}")
 
     def execute_screen_actions(self, mapping, record: Dict[str, Any], screen_report: Dict[str, Any]):
         actions = self.data_mapper.map_record_to_screen(record, mapping)
@@ -118,6 +139,8 @@ class LocalAgent:
             except Exception as e:
                 action_info["status"] = "failed"
                 action_info["error"] = str(e)
+                # Capture screenshot on action failure
+                self._capture_error_state(f"action_fail_{field.logical_key}")
                 raise
 
     def navigate_to(self, current_mapping, next_screen_name: str) -> bool:
@@ -130,17 +153,17 @@ class LocalAgent:
             return True
         return False
 
-    def _wait_for_screen(self, screen_name: str, max_retries: int = 5):
+    def _wait_for_screen(self, screen_name: str, mapping=None, max_retries: int = 5):
         if self.dry_run:
             return
 
         ref_img_path = os.path.join(self.ref_images_dir, f"{screen_name}.png")
         for attempt in range(max_retries):
             if not os.path.exists(ref_img_path):
-                logger.warning(f"No ref image for {screen_name}, skipping.")
+                logger.warning(f"No ref image for {screen_name}, skipping detection.")
                 return
 
-            if self.detector.detect_screen(screen_name, ref_img_path):
+            if self.detector.detect_screen(screen_name, ref_img_path, mapping=mapping):
                 return
 
             if self.popup_handler:
@@ -153,13 +176,16 @@ class LocalAgent:
             logger.info(f"Waiting for {screen_name} (Attempt {attempt+1}/{max_retries})...")
             time.sleep(2)
 
+        # Before failing, take a screenshot
+        self._capture_error_state(f"screen_not_found_{screen_name}")
         raise RuntimeError(f"Screen {screen_name} not detected.")
 
-    def _capture_error_state(self, record_id: int):
+    def _capture_error_state(self, tag: Any):
         if not self.dry_run:
-            error_file = f"error_record_{record_id}_{int(time.time())}.png"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            error_file = f"error_{tag}_{timestamp}.png"
             self.detector.capture_screenshot().save(error_file)
-            logger.error(f"Error screenshot saved: {error_file}")
+            logger.error(f"Error state captured: {error_file}")
 
     def _save_final_report(self):
         report_file = f"execution_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"

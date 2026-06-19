@@ -2,43 +2,61 @@ import pyautogui
 import time
 import random
 import os
+import cv2
+import numpy as np
 from loguru import logger
 from typing import Any, Optional, List
+from PIL import Image
 from tes_v2_local_agent.models.mapping import FieldMapping, ClickTarget, Choice
 from tes_v2_local_agent.utils.retry import retry
 
 class ActionExecutor:
-    def __init__(self, resolution: Optional[tuple[int, int]] = None, dry_run: bool = False):
+    def __init__(self, resolution: Optional[tuple[int, int]] = None, dry_run: bool = False, locator=None):
         self.curr_w, self.curr_h = pyautogui.size()
         self.mapping_res = resolution
         self.dry_run = dry_run
+        self.locator = locator
+
+        # Internal state for locator context
+        self.mapping_dir = None
+        self.ref_screenshot = None
+
         if not dry_run:
             pyautogui.PAUSE = 0.2
             pyautogui.FAILSAFE = True
         logger.info(f"ActionExecutor initialized (Current Res: {self.curr_w}x{self.curr_h}, Mapping Res: {resolution}, Dry Run: {dry_run})")
+
+    def set_context(self, mapping_dir: str, ref_screenshot: Image.Image):
+        """Sets the context for the current screen's element relocation."""
+        self.mapping_dir = mapping_dir
+        self.ref_screenshot = ref_screenshot
 
     def _human_delay(self, min_s=0.1, max_s=0.3):
         if not self.dry_run:
             time.sleep(random.uniform(min_s, max_s))
 
     def _get_abs_coords(self, rel_x: float, rel_y: float) -> tuple[int, int]:
-        return int(round(rel_x * self.curr_w)), int(round(rel_y * self.curr_h))
+        # Add a tiny randomization +/- 2-4 px
+        abs_x = int(round(rel_x * self.curr_w))
+        abs_y = int(round(rel_y * self.curr_h))
+
+        if not self.dry_run:
+            abs_x += random.randint(-2, 2)
+            abs_y += random.randint(-2, 2)
+
+        return abs_x, abs_y
 
     def execute_action(self, field: FieldMapping, value: Any):
-        # Valueless types or elements with navigation should ALWAYS be processed
         VAL_LESS_TYPES = ("button", "icon", "tab", "menu_item", "toggle", "scroll_area", "drag_handle", "label")
 
         is_nav = field.navigation_config is not None
         has_value = value is not None and value != ""
 
         if not has_value and not is_nav and field.ui_type not in VAL_LESS_TYPES:
-            logger.debug(f"Skipping field {field.logical_key} (Type: {field.ui_type}) - no value and not navigation/valueless")
+            logger.debug(f"Skipping field {field.logical_key} (Type: {field.ui_type}) - no value")
             return
 
-        msg = f"Action '{field.action}' on field '{field.logical_key}' (Type: {field.ui_type}) with value '{value}'"
-        if is_nav:
-            msg += f" [NAVIGATION -> {field.navigation_config.target_screen}]"
-
+        msg = f"Action '{field.action}' on field '{field.logical_key}'"
         if self.dry_run:
             logger.info(f"[DRY RUN] {msg}")
             return
@@ -52,12 +70,20 @@ class ActionExecutor:
 
     @retry(Exception, tries=3, delay=1, backoff=2)
     def _execute_with_retry(self, field: FieldMapping, value: Any):
+        # 1. Relocate element dynamically if locator is available
         target = field.click_target
         if not target:
             target = ClickTarget(
                 x=field.bbox_relative.x + field.bbox_relative.w / 2,
                 y=field.bbox_relative.y + field.bbox_relative.h / 2
             )
+
+        if self.locator and field.requires_relocation and self.mapping_dir and self.ref_screenshot:
+            new_target = self.locator.locate_element(field, self.mapping_dir, self.ref_screenshot)
+            if new_target:
+                target = new_target
+            else:
+                logger.warning(f"Relocation failed for {field.logical_key}, using original coordinates.")
 
         abs_x, abs_y = self._get_abs_coords(target.x, target.y)
         action = field.action.lower() if field.action else "click"
@@ -68,7 +94,7 @@ class ActionExecutor:
             if ui_type == "radio":
                 self.handle_radio(field, value)
                 return
-            elif ui_type == "dropdown" or ui_type == "date_picker":
+            elif ui_type in ("dropdown", "date_picker"):
                 self.handle_dropdown(field, value)
                 return
 
@@ -84,11 +110,10 @@ class ActionExecutor:
         elif action == "hover":
             self.hover(abs_x, abs_y)
         elif action in ("click_then_type", "type"):
-            self.fill_text(abs_x, abs_y, str(value))
+            self.fill_text(abs_x, abs_y, str(value), field=field)
         elif action == "triple_click_then_type":
-            self.fill_text(abs_x, abs_y, str(value), triple=True)
+            self.fill_text(abs_x, abs_y, str(value), triple=True, field=field)
         elif action in ("check", "uncheck"):
-            # Assume click toggles, but we could add logic if we knew state
             self.click(abs_x, abs_y)
         elif action == "scroll":
             self.scroll(field)
@@ -97,7 +122,7 @@ class ActionExecutor:
         elif action == "none":
             logger.debug(f"Action 'none' for {field.logical_key}")
         else:
-            logger.warning(f"Action '{action}' is unhandled, attempting generic click")
+            logger.warning(f"Action '{action}' unhandled, attempting click")
             self.click(abs_x, abs_y)
 
     def click(self, x: int, y: int, clicks=1):
@@ -114,27 +139,36 @@ class ActionExecutor:
         self._human_delay()
         pyautogui.moveTo(x, y, duration=0.15)
 
-    def fill_text(self, x: int, y: int, text: str, triple=False):
+    def fill_text(self, x: int, y: int, text: str, triple=False, field: Optional[FieldMapping] = None):
+        # Human-like focus
         if triple:
             self.click(x, y, clicks=3)
         else:
+            # Click then Ctrl+A for robustness
             self.click(x, y)
             pyautogui.hotkey('ctrl', 'a')
 
         self._human_delay(0.05, 0.1)
         pyautogui.press('backspace')
         self._human_delay(0.05, 0.1)
+
+        # Type the text
         pyautogui.write(text, interval=0.01)
+        pyautogui.press('enter') # Often required to validate field
+
+        # Post-action verification
+        if field and self.locator and self.locator.config.get('verification_post_fill', True):
+            self._verify_action(field, text)
+
+    def _verify_action(self, field: FieldMapping, expected_text: str):
+        # For now, a simple placeholder for verification
+        # In a real scenario, we could use OCR or compare against a template of the text
+        logger.debug(f"Verifying action for {field.logical_key} (expected: {expected_text})")
+        # TODO: Implement visual verification logic
 
     def handle_radio(self, field: FieldMapping, value: str):
         if not field.choices:
-            logger.warning(f"No choices for radio {field.logical_key}, clicking main target")
-            target = field.click_target or ClickTarget(
-                x=field.bbox_relative.x + field.bbox_relative.w / 2,
-                y=field.bbox_relative.y + field.bbox_relative.h / 2
-            )
-            abs_x, abs_y = self._get_abs_coords(target.x, target.y)
-            self.click(abs_x, abs_y)
+            logger.warning(f"No choices for radio {field.logical_key}")
             return
 
         choice = self._find_choice(field.choices, str(value))
@@ -142,8 +176,6 @@ class ActionExecutor:
             cx, cy = self._get_abs_coords(choice.x, choice.y)
             self.click(cx, cy)
         else:
-            available = [c.label for c in field.choices]
-            logger.error(f"Radio choice '{value}' not found for {field.logical_key}. Available: {available}")
             raise ValueError(f"Radio choice '{value}' not found for {field.logical_key}")
 
     def handle_dropdown(self, field: FieldMapping, value: str):
@@ -172,31 +204,21 @@ class ActionExecutor:
             return
 
         strategy = field.scroll_config.strategy or "wheel"
-
         if strategy == "scrollbar" and field.scrollbar_target:
-            # Click and drag scrollbar? Or just click a point?
-            # V1: Click the scrollbar target point multiple times or once?
-            # Let's assume clicking the target point 'amount' times
             sx, sy = self._get_abs_coords(field.scrollbar_target['x'], field.scrollbar_target['y'])
             for _ in range(field.scroll_config.amount):
                 self.click(sx, sy)
                 time.sleep(0.1)
         else:
-            # Default wheel scroll
             abs_x, abs_y = self._get_abs_coords(
                 field.bbox_relative.x + field.bbox_relative.w / 2,
                 field.bbox_relative.y + field.bbox_relative.h / 2
             )
             pyautogui.moveTo(abs_x, abs_y, duration=0.15)
             clicks = field.scroll_config.amount * (-1 if field.scroll_config.direction == "down" else 1)
-            # pyautogui.scroll(clicks) often needs large values (e.g. 120 per notch)
-            # In mapping tool, scroll_amount defaults to 120 for wheel.
             pyautogui.scroll(clicks)
 
     def drag(self, field: FieldMapping):
-        # We'd need to find the drag target coordinates by logical key.
-        # This requires access to all elements in the screen.
-        # For now, log it.
         logger.warning(f"Drag action for {field.logical_key} not fully implemented")
 
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:

@@ -1,0 +1,34 @@
+# Robustness Configuration for TES_V2 Local Agent
+
+# Matching Tolerances
+template_matching_threshold: 0.85
+orb_matching_threshold: 0.70
+hash_similarity_threshold: 0.95
+
+# Search Margins (relative to screen size)
+default_search_margin: 0.25
+
+# Scroll Settings
+scroll_step: 300  # pixels
+max_scroll_attempts: 6
+scroll_pause: 0.5  # seconds
+
+# Timeouts and Retries
+action_retry_count: 3
+action_retry_delay: 1.0
+stability_wait_time: 0.5
+stability_max_attempts: 5
+
+# Fill Text Improvements
+triple_click_focus: true
+ctrl_a_backup: true
+verification_post_fill: true
+
+# Verification Strategy: "none", "template", "ocr"
+verification_strategy: "template"
+
+# Strict Mode: if true, fail on verification errors
+strict_mode: false
+
+# Screen Detection
+mask_inputs_in_hash: true
