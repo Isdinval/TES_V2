@@ -11,11 +11,16 @@ class ActionExecutor:
     def __init__(self, resolution: Optional[tuple[int, int]] = None, dry_run: bool = False):
         self.curr_w, self.curr_h = pyautogui.size()
         self.mapping_res = resolution
+        self.elements: List[FieldMapping] = []
         self.dry_run = dry_run
         if not dry_run:
             pyautogui.PAUSE = 0.2
             pyautogui.FAILSAFE = True
         logger.info(f"ActionExecutor initialized (Current Res: {self.curr_w}x{self.curr_h}, Mapping Res: {resolution}, Dry Run: {dry_run})")
+
+    def set_screen_elements(self, elements: List[FieldMapping]):
+        self.elements = elements
+        logger.debug(f"ActionExecutor: screen elements set ({len(elements)} elements)")
 
     def _human_delay(self, min_s=0.1, max_s=0.3):
         if not self.dry_run:
@@ -138,13 +143,21 @@ class ActionExecutor:
             return
 
         choice = self._find_choice(field.choices, str(value))
-        if choice:
-            cx, cy = self._get_abs_coords(choice.x, choice.y)
-            self.click(cx, cy)
-        else:
+        if not choice:
             available = [c.label for c in field.choices]
             logger.error(f"Radio choice '{value}' not found for {field.logical_key}. Available: {available}")
             raise ValueError(f"Radio choice '{value}' not found for {field.logical_key}")
+
+        if choice.scroll_steps > 0:
+            self._scroll_steps_in_container(field, choice.scroll_steps)
+            # Re-find choice coordinates after scrolling
+            choice = self._find_choice(field.choices, str(value))
+
+        if choice and choice.x is not None and choice.y is not None:
+            cx, cy = self._get_abs_coords(choice.x, choice.y)
+            self.click(cx, cy)
+        else:
+            logger.warning(f"Choice '{value}' has no coordinates after scrolling (x={choice.x if choice else 'N/A'}, y={choice.y if choice else 'N/A'})")
 
     def handle_dropdown(self, field: FieldMapping, value: str):
         target = field.click_target or ClickTarget(
@@ -158,8 +171,18 @@ class ActionExecutor:
         if field.choices:
             choice = self._find_choice(field.choices, str(value))
             if choice:
-                cx, cy = self._get_abs_coords(choice.x, choice.y)
-                self.click(cx, cy)
+                if choice.scroll_steps > 0:
+                    self._scroll_steps_in_container(field, choice.scroll_steps)
+                    # Re-find choice coordinates after scrolling
+                    choice = self._find_choice(field.choices, str(value))
+
+                if choice and choice.x is not None and choice.y is not None:
+                    cx, cy = self._get_abs_coords(choice.x, choice.y)
+                    self.click(cx, cy)
+                else:
+                    logger.warning(f"Choice '{value}' has no coordinates after scrolling, falling back to typing")
+                    pyautogui.write(str(value))
+                    pyautogui.press('enter')
             else:
                 pyautogui.write(str(value))
                 pyautogui.press('enter')
@@ -167,37 +190,98 @@ class ActionExecutor:
             pyautogui.write(str(value))
             pyautogui.press('enter')
 
-    def scroll(self, field: FieldMapping):
+    def _scroll_steps_in_container(self, field: FieldMapping, n_steps: int):
+        logger.info(f"Scrolling container for {field.logical_key} ({n_steps} steps)")
+        for i in range(n_steps):
+            self.scroll(field, step_mode=True)
+            self._human_delay(0.1, 0.2)
+
+    def scroll(self, field: FieldMapping, step_mode: bool = False):
         if not field.scroll_config:
             return
 
         strategy = field.scroll_config.strategy or "wheel"
+        amount = 1 if step_mode else field.scroll_config.amount
 
         if strategy == "scrollbar" and field.scrollbar_target:
-            # Click and drag scrollbar? Or just click a point?
-            # V1: Click the scrollbar target point multiple times or once?
-            # Let's assume clicking the target point 'amount' times
             sx, sy = self._get_abs_coords(field.scrollbar_target['x'], field.scrollbar_target['y'])
-            for _ in range(field.scroll_config.amount):
+            for _ in range(amount):
                 self.click(sx, sy)
                 time.sleep(0.1)
+        elif strategy == "drag_thumb":
+            if not field.scrollbar_target:
+                logger.warning(f"drag_thumb strategy requested for {field.logical_key} but no scrollbar_target defined. Falling back to wheel.")
+                self._wheel_scroll(field, amount)
+            else:
+                sx, sy = self._get_abs_coords(field.scrollbar_target['x'], field.scrollbar_target['y'])
+                direction = field.scroll_config.direction or "down"
+                dist = field.scroll_config.amount if not step_mode else 10 # heuristic for 1 step in drag thumb
+                if direction == "up":
+                    dist = -dist
+
+                self._human_delay()
+                pyautogui.moveTo(sx, sy, duration=0.2)
+                pyautogui.mouseDown()
+                self._human_delay(0.1, 0.2)
+                pyautogui.moveTo(sx, sy + dist, duration=0.4)
+                self._human_delay(0.05, 0.1)
+                pyautogui.mouseUp()
         else:
             # Default wheel scroll
+            self._wheel_scroll(field, amount)
+
+    def _wheel_scroll(self, field: FieldMapping, amount: int):
+        # Determine scroll region
+        if field.scroll_container:
+            # Use scroll_container center
+            cx = field.scroll_container['x'] + field.scroll_container['w'] / 2
+            cy = field.scroll_container['y'] + field.scroll_container['h'] / 2
+            abs_x, abs_y = self._get_abs_coords(cx, cy)
+        else:
+            # Use element bbox center
             abs_x, abs_y = self._get_abs_coords(
                 field.bbox_relative.x + field.bbox_relative.w / 2,
                 field.bbox_relative.y + field.bbox_relative.h / 2
             )
-            pyautogui.moveTo(abs_x, abs_y, duration=0.15)
-            clicks = field.scroll_config.amount * (-1 if field.scroll_config.direction == "down" else 1)
-            # pyautogui.scroll(clicks) often needs large values (e.g. 120 per notch)
-            # In mapping tool, scroll_amount defaults to 120 for wheel.
-            pyautogui.scroll(clicks)
+
+        pyautogui.moveTo(abs_x, abs_y, duration=0.15)
+        direction = field.scroll_config.direction or "down"
+        clicks = amount * (-1 if direction == "down" else 1)
+        pyautogui.scroll(clicks)
 
     def drag(self, field: FieldMapping):
-        # We'd need to find the drag target coordinates by logical key.
-        # This requires access to all elements in the screen.
-        # For now, log it.
-        logger.warning(f"Drag action for {field.logical_key} not fully implemented")
+        if not field.drag_target:
+            logger.error(f"Drag action called for {field.logical_key} but no drag_target defined")
+            return
+
+        target_element = next((e for e in self.elements if e.logical_key == field.drag_target), None)
+        if not target_element:
+            logger.error(f"Drag target '{field.drag_target}' not found in current screen elements")
+            raise ValueError(f"Drag target '{field.drag_target}' not found")
+
+        # Source coordinates
+        src_target = field.click_target or ClickTarget(
+            x=field.bbox_relative.x + field.bbox_relative.w / 2,
+            y=field.bbox_relative.y + field.bbox_relative.h / 2
+        )
+        src_x, src_y = self._get_abs_coords(src_target.x, src_target.y)
+
+        # Target coordinates
+        tgt_target = target_element.click_target or ClickTarget(
+            x=target_element.bbox_relative.x + target_element.bbox_relative.w / 2,
+            y=target_element.bbox_relative.y + target_element.bbox_relative.h / 2
+        )
+        tgt_x, tgt_y = self._get_abs_coords(tgt_target.x, tgt_target.y)
+
+        logger.info(f"Dragging from {field.logical_key} to {field.drag_target} ({src_x},{src_y} -> {tgt_x},{tgt_y})")
+
+        self._human_delay()
+        pyautogui.moveTo(src_x, src_y, duration=0.2)
+        pyautogui.mouseDown()
+        self._human_delay(0.1, 0.2)
+        pyautogui.moveTo(tgt_x, tgt_y, duration=0.4)
+        self._human_delay(0.05, 0.1)
+        pyautogui.mouseUp()
 
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:
         for c in choices:

@@ -22,8 +22,9 @@ class NavigationConfig(BaseModel):
 
 class Choice(BaseModel):
     label: str
-    x: float
-    y: float
+    x: Optional[float] = None
+    y: Optional[float] = None
+    scroll_steps: int = 0
 
 class FieldMapping(BaseModel):
     stable_id: str

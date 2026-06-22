@@ -90,6 +90,9 @@ class LocalAgent:
                 if self.popup_refs_dir:
                     self.popup_handler = PopupHandler(self.popup_refs_dir, self.executor)
 
+            # Update executor with current screen elements
+            self.executor.set_screen_elements(mapping.elements)
+
             # 3. Detect & Wait
             self._wait_for_screen(screen_name)
             screen_report["status"] = "detected"
