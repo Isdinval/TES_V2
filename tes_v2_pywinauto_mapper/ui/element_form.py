@@ -6,14 +6,14 @@ from core.element import UIElement
 UI_TYPES = [
     "button", "text_input", "checkbox", "radio", "dropdown", "label",
     "icon", "tab", "menu_item", "toggle", "date_picker", "table_cell",
-    "scroll_area", "drag_handle", "other"
+    "scroll_area", "drag_handle", "hyperlink", "slider", "spinner", "tree_item", "other"
 ]
 
 UI_TYPE_ACTIONS = {
     "button": ["click", "double_click", "right_click", "hover"],
     "text_input": ["click_then_type", "click", "triple_click_then_type"],
     "checkbox": ["check", "uncheck", "click"],
-    "radio": ["click", "select"],
+    "radio": ["select", "click"],
     "dropdown": ["select", "click"],
     "label": ["hover", "none"],
     "icon": ["click", "double_click", "right_click", "hover"],
@@ -24,6 +24,10 @@ UI_TYPE_ACTIONS = {
     "table_cell": ["click", "double_click", "click_then_type", "none"],
     "scroll_area": ["scroll"],
     "drag_handle": ["drag"],
+    "hyperlink": ["click", "hover"],
+    "slider": ["set_value", "click"],
+    "spinner": ["triple_click_then_type", "click_then_type"],
+    "tree_item": ["click", "double_click", "expand", "select"],
     "other": ["click", "hover", "none"],
 }
 
@@ -91,7 +95,7 @@ class ElementForm(QWidget):
         self.action_combo.addItems(actions)
 
         # Dynamic visibility
-        show_expected = ui_type in ["dropdown", "radio", "checkbox", "table_cell", "date_picker"]
+        show_expected = ui_type in ["dropdown", "radio", "checkbox", "table_cell", "date_picker", "slider"]
         self.expected_value_edit.setVisible(show_expected)
         label = self.form_layout.labelForField(self.expected_value_edit)
         if label:
@@ -150,14 +154,22 @@ class ElementForm(QWidget):
             "radiobutton": "radio",
             "combobox": "dropdown",
             "list": "dropdown",
+            "listitem": "dropdown",
             "text": "label",
             "image": "icon",
             "tabitem": "tab",
             "menuitem": "menu_item",
             "datagrid": "table_cell",
+            "dataitem": "table_cell",
+            "hyperlink": "hyperlink",
+            "slider": "slider",
+            "spinner": "spinner",
+            "treeitem": "tree_item",
+            "scrollbar": "scroll_area",
             "pane": "other",
             "window": "other",
             "group": "other",
+            "custom": "other",
         }
         suggested = mapping.get(ctype, "other")
 
