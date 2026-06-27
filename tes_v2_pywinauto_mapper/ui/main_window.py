@@ -178,8 +178,10 @@ class MainWindow(QMainWindow):
             if not silent: QMessageBox.warning(self, "Export", "App Name and Screen Name are required.")
             return
 
+        resolution = (win32api.GetSystemMetrics(win32con.SM_CXSCREEN), win32api.GetSystemMetrics(win32con.SM_CYSCREEN))
+
         file_path = self.mapping_store.save_mapping(
-            app_name, screen_name, self.scanner.backend, self.window_title, self.canvas.elements
+            app_name, screen_name, self.scanner.backend, self.window_title, self.canvas.elements, resolution
         )
 
         if not silent:
