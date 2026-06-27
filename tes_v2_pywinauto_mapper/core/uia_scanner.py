@@ -11,7 +11,7 @@ class UIAScanner:
     INTERACTIVE_TYPES = {
         "Button", "Edit", "ComboBox", "CheckBox", "RadioButton",
         "List", "DataGrid", "TabItem", "MenuItem", "Hyperlink", "TreeItem",
-        "ListItem", "HeaderItem"
+        "ListItem", "HeaderItem", "ListBox", "Slider", "Spinner"
     }
 
     def __init__(self):
@@ -55,6 +55,41 @@ class UIAScanner:
                 return self._get_elements(window, show_all)
             except: return []
 
+    def _extract_choices(self, ctrl, window_rect: Optional[tuple] = None) -> List[dict]:
+        """
+        For ComboBox, List, RadioButton (and RadioButton siblings): extract child items.
+        Returns list of {"label": str, "x": float_absolute, "y": float_absolute}
+        where x, y are the CENTER of each child item's rectangle (absolute screen coords).
+        """
+        choices = []
+        try:
+            target_ctrls = []
+            control_type = ctrl.element_info.control_type
+
+            if control_type in ("ComboBox", "List", "ListBox"):
+                target_ctrls = [child for child in ctrl.children() if child.element_info.control_type == "ListItem"]
+            elif control_type == "RadioButton":
+                parent = ctrl.parent()
+                if parent:
+                    target_ctrls = [child for child in parent.children() if child.element_info.control_type == "RadioButton"]
+
+            for item in target_ctrls:
+                try:
+                    i_rect = item.rectangle()
+                    center_x = i_rect.left + i_rect.width() / 2
+                    center_y = i_rect.top + i_rect.height() / 2
+                    label = item.window_text() or ""
+                    choices.append({
+                        "label": label,
+                        "x": float(center_x),
+                        "y": float(center_y)
+                    })
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return choices
+
     def _get_elements(self, window, show_all: bool) -> List[UIElement]:
         ui_elements = []
         try:
@@ -77,6 +112,7 @@ class UIAScanner:
 
                     patterns = []
                     value_pattern = False
+                    toggle_state = None
                     if self.backend == "uia":
                         if hasattr(ctrl, 'get_value'):
                             patterns.append("Value")
@@ -86,6 +122,18 @@ class UIAScanner:
                         if hasattr(ctrl, 'toggle'): patterns.append("Toggle")
                         if hasattr(ctrl, 'scroll'): patterns.append("Scroll")
 
+                        # P1-B: Read toggle_state
+                        try:
+                            if control_type == "CheckBox":
+                                # TogglePattern: toggle_state() returns 0 (off), 1 (on), 2 (indeterminate)
+                                ts = ctrl.get_toggle_state()
+                                toggle_state = {0: "off", 1: "on", 2: "indeterminate"}.get(ts, None)
+                            elif control_type == "RadioButton":
+                                # SelectionItemPattern
+                                toggle_state = "selected" if ctrl.is_selected() else "unselected"
+                        except Exception:
+                            pass
+
                     value = ""
                     try:
                         if hasattr(ctrl, 'get_value'): value = str(ctrl.get_value())
@@ -93,6 +141,23 @@ class UIAScanner:
                             txts = ctrl.texts()
                             if txts: value = txts[0]
                     except: pass
+
+                    # P1-A: Populate pywinauto_selector
+                    selector = {}
+                    if automation_id and not automation_id.isdigit():
+                        selector["automation_id"] = automation_id
+                    if control_type and control_type != "Unknown":
+                        selector["control_type"] = control_type
+                    if name.strip():
+                        selector["title"] = name.strip()
+                    if class_name.strip():
+                        selector["class_name"] = class_name.strip()
+                    pywinauto_selector = selector if selector else None
+
+                    # P0-B: Extract choices
+                    choices = []
+                    if self.backend == "uia" and control_type in ("ComboBox", "List", "RadioButton", "ListBox"):
+                        choices = self._extract_choices(ctrl)
 
                     ui_elements.append(UIElement(
                         name=name,
@@ -106,7 +171,10 @@ class UIAScanner:
                         value=value,
                         patterns=patterns,
                         value_pattern=value_pattern,
-                        ui_type=control_type # Default ui_type to control_type
+                        ui_type=control_type, # Default ui_type to control_type
+                        toggle_state=toggle_state,
+                        pywinauto_selector=pywinauto_selector,
+                        choices=choices
                     ))
                 except Exception: continue
         except Exception as e:

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
+import hashlib
 
 @dataclass
 class UIElement:
@@ -25,8 +26,45 @@ class UIElement:
     expected_value: str = ""
     value_pattern: bool = False
 
+    # New fields
+    choices: Optional[List[Dict[str, Any]]] = field(default_factory=list)
+    # Each item: {"label": str, "x": float (abs), "y": float (abs)}
+
+    toggle_state: Optional[str] = None
+    # For CheckBox: "on", "off", "indeterminate"
+    # For RadioButton: "selected" or "unselected"
+
+    pywinauto_selector: Optional[Dict[str, Any]] = None
+    # Built during scan from: automation_id, control_type, title (name)
+
     # Reference resolution for relative conversion
     ref_resolution: Optional[List[int]] = None
+
+    def generate_stable_id(self) -> str:
+        """
+        Priority 1: automation_id if non-empty and not a generic integer string
+        Priority 2: f"{self.class_name}_{self.name}" if both are meaningful
+        Priority 3: f"{self.control_type}_{self.class_name}_{rect_hash}"
+        Priority 4: hash of (name + control_type + rectangle)
+        """
+        rect_str = f"{self.rectangle[0]},{self.rectangle[1]},{self.rectangle[2]},{self.rectangle[3]}"
+        rect_hash = hashlib.md5(rect_str.encode()).hexdigest()[:8]
+
+        # Priority 1
+        if self.automation_id and not self.automation_id.isdigit():
+            return self.automation_id
+
+        # Priority 2
+        if self.class_name and self.name.strip():
+            return f"{self.class_name}_{self.name.strip()}"
+
+        # Priority 3
+        if self.control_type and self.class_name:
+            return f"{self.control_type}_{self.class_name}_{rect_hash}"
+
+        # Priority 4
+        combined = f"{self.name}{self.control_type}{rect_str}"
+        return hashlib.md5(combined.encode()).hexdigest()[:16]
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -47,7 +85,7 @@ class UIElement:
             "path": self.path,
             "expected_value": self.expected_value,
             "value_pattern": self.value_pattern,
-            "stable_id": self.automation_id if self.automation_id else f"{self.name}_{self.control_type}"
+            "stable_id": self.generate_stable_id()
         }
 
         # Convert rectangle [x, y, w, h] to bbox_relative [x, y, w, h] as floats (0..1)
@@ -62,6 +100,22 @@ class UIElement:
             }
             # Also add source for local agent compatibility
             data["source"] = "human"
+
+            if self.choices:
+                data["choices"] = [
+                    {
+                        "label": c["label"],
+                        "x": round(c["x"] / rw, 6),
+                        "y": round(c["y"] / rh, 6)
+                    }
+                    for c in self.choices
+                ]
+
+        if self.toggle_state:
+            data["toggle_state"] = self.toggle_state
+
+        if self.pywinauto_selector:
+            data["pywinauto_selector"] = self.pywinauto_selector
 
         return data
 
@@ -84,5 +138,8 @@ class UIElement:
             notes=data.get("notes", ""),
             path=data.get("path", ""),
             expected_value=data.get("expected_value", ""),
-            value_pattern=data.get("value_pattern", False)
+            value_pattern=data.get("value_pattern", False),
+            choices=data.get("choices", []),
+            toggle_state=data.get("toggle_state"),
+            pywinauto_selector=data.get("pywinauto_selector")
         )
