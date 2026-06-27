@@ -21,10 +21,15 @@ class UIElement:
     ui_type: str = ""
     action: str = ""
     notes: str = ""
+    path: str = ""
+    expected_value: str = ""
     value_pattern: bool = False
 
+    # Reference resolution for relative conversion
+    ref_resolution: Optional[List[int]] = None
+
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        data = {
             "logical_key": self.logical_key,
             "ui_type": self.ui_type,
             "action": self.action,
@@ -39,8 +44,26 @@ class UIElement:
             "value": self.value,
             "patterns": self.patterns,
             "notes": self.notes,
-            "value_pattern": self.value_pattern
+            "path": self.path,
+            "expected_value": self.expected_value,
+            "value_pattern": self.value_pattern,
+            "stable_id": self.automation_id if self.automation_id else f"{self.name}_{self.control_type}"
         }
+
+        # Convert rectangle [x, y, w, h] to bbox_relative [x, y, w, h] as floats (0..1)
+        if self.ref_resolution and len(self.ref_resolution) == 2:
+            rw, rh = self.ref_resolution
+            rx, ry, rw_el, rh_el = self.rectangle
+            data["bbox_relative"] = {
+                "x": round(rx / rw, 6),
+                "y": round(ry / rh, 6),
+                "w": round(rw_el / rw, 6),
+                "h": round(rh_el / rh, 6)
+            }
+            # Also add source for local agent compatibility
+            data["source"] = "human"
+
+        return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'UIElement':
@@ -59,5 +82,7 @@ class UIElement:
             value=data.get("value"),
             patterns=data.get("patterns", []),
             notes=data.get("notes", ""),
+            path=data.get("path", ""),
+            expected_value=data.get("expected_value", ""),
             value_pattern=data.get("value_pattern", False)
         )

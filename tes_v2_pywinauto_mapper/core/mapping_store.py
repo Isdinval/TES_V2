@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from core.element import UIElement
 
@@ -15,14 +16,25 @@ class MappingStore:
         safe_screen = "".join([c for c in screen_name if c.isalnum() or c in (' ', '_')]).strip().replace(' ', '_')
         return os.path.join(self.base_dir, f"{safe_app}_{safe_screen}.json")
 
-    def save_mapping(self, app_name: str, screen_name: str, backend: str, window_title: str, elements: List[UIElement]):
+    def save_mapping(self, app_name: str, screen_name: str, backend: str, window_title: str, elements: List[UIElement], resolution: tuple[int, int]):
+        # Structure compatible with tes_v2_local_agent
         data = {
-            "app_name": app_name,
-            "screen_name": screen_name,
-            "backend": backend,
-            "window_title": window_title,
-            "elements": [el.to_dict() for el in elements if el.logical_key] # Only save mapped elements
+            "meta": {
+                "app": app_name,
+                "screen": screen_name,
+                "backend": backend,
+                "window_title": window_title,
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "resolution": list(resolution)
+            },
+            "elements": []
         }
+
+        for el in elements:
+            if el.logical_key:
+                el.ref_resolution = list(resolution)
+                data["elements"].append(el.to_dict())
+
         file_path = self._get_file_path(app_name, screen_name)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
@@ -66,6 +78,8 @@ class MappingStore:
                 el.ui_type = match.get("ui_type", "")
                 el.action = match.get("action", "")
                 el.notes = match.get("notes", "")
+                el.path = match.get("path", "")
+                el.expected_value = match.get("expected_value", "")
                 el.value_pattern = match.get("value_pattern", False)
 
         return scanned_elements
