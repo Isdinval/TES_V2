@@ -18,17 +18,12 @@ class UIAScanner:
         self.backend = "uia"
 
     def capture_window(self, handle: int) -> Tuple[Optional[ImageGrab.Image.Image], Optional[Tuple[int, int, int, int]]]:
-        """Captures a screenshot of the specified window."""
         try:
             if not win32gui.IsWindow(handle):
                 return None, None
-
-            # Ensure window is not minimized
             if win32gui.IsIconic(handle):
                 win32gui.ShowWindow(handle, win32con.SW_RESTORE)
-
-            rect = win32gui.GetWindowRect(handle) # (L, T, R, B)
-            # ImageGrab.grab takes (L, T, R, B)
+            rect = win32gui.GetWindowRect(handle)
             screenshot = ImageGrab.grab(bbox=rect, all_screens=True)
             return screenshot, rect
         except Exception as e:
@@ -36,17 +31,12 @@ class UIAScanner:
             return None, None
 
     def scan(self, handle: int, show_all: bool = False) -> List[UIElement]:
-        """Scans elements of the window using pywinauto."""
         elements = []
         try:
-            # We connect to the process owning the handle
             app = pywinauto.Application(backend="uia").connect(handle=handle, timeout=2)
             window = app.window(handle=handle)
-
             self.backend = "uia"
             elements = self._get_elements(window, show_all)
-
-            # Fallback if too few elements
             if len(elements) < 3:
                 print("UIA returned few elements, trying win32 fallback...")
                 try:
@@ -56,72 +46,53 @@ class UIAScanner:
                     if len(elements_win32) > len(elements):
                         elements = elements_win32
                         self.backend = "win32"
-                except Exception as e:
-                    print(f"Win32 fallback failed: {e}")
-
+                except: pass
             return elements
         except Exception as e:
             print(f"Scan error: {e}")
-            # Try to just use Desktop if application connect fails
             try:
-                print("Trying to scan via Desktop...")
                 window = Desktop(backend="uia").window(handle=handle)
                 return self._get_elements(window, show_all)
-            except:
-                return []
+            except: return []
 
     def _get_elements(self, window, show_all: bool) -> List[UIElement]:
         ui_elements = []
         try:
-            # descendants() is thorough
             all_ctrls = window.descendants()
-
             for ctrl in all_ctrls:
                 try:
                     props = ctrl.get_properties()
-
                     control_type = props.get("control_type", "Unknown")
                     name = props.get("texts", [""])[0] if props.get("texts") else ""
                     automation_id = props.get("automation_id", "")
                     class_name = props.get("class_name", "")
                     framework_id = props.get("framework_id", "")
-
                     rect = props.get("rectangle")
-                    if not rect:
-                        continue
+                    if not rect: continue
 
                     if not show_all:
-                        # Filter: interactive type OR has a name (labels)
                         is_interactive = control_type in self.INTERACTIVE_TYPES
                         has_name = bool(name.strip())
-                        if not (is_interactive or has_name):
-                            continue
+                        if not (is_interactive or has_name): continue
 
-                    # Extract Patterns (UIA specific)
                     patterns = []
+                    value_pattern = False
                     if self.backend == "uia":
-                        try:
-                            # Accessing UIA element directly to see patterns
-                            elem = ctrl.element_info.element
-                            # This is a bit advanced, but we can check for common patterns
-                            # In pywinauto, we can check wrapper methods
-                            if hasattr(ctrl, 'get_value'): patterns.append("Value")
-                            if hasattr(ctrl, 'invoke'): patterns.append("Invoke")
-                            if hasattr(ctrl, 'select'): patterns.append("SelectionItem")
-                            if hasattr(ctrl, 'toggle'): patterns.append("Toggle")
-                            if hasattr(ctrl, 'scroll'): patterns.append("Scroll")
-                        except:
-                            pass
+                        if hasattr(ctrl, 'get_value'):
+                            patterns.append("Value")
+                            value_pattern = True
+                        if hasattr(ctrl, 'invoke'): patterns.append("Invoke")
+                        if hasattr(ctrl, 'select'): patterns.append("SelectionItem")
+                        if hasattr(ctrl, 'toggle'): patterns.append("Toggle")
+                        if hasattr(ctrl, 'scroll'): patterns.append("Scroll")
 
                     value = ""
                     try:
-                        if hasattr(ctrl, 'get_value'):
-                            value = str(ctrl.get_value())
+                        if hasattr(ctrl, 'get_value'): value = str(ctrl.get_value())
                         elif hasattr(ctrl, 'texts'):
                             txts = ctrl.texts()
                             if txts: value = txts[0]
-                    except:
-                        pass
+                    except: pass
 
                     ui_elements.append(UIElement(
                         name=name,
@@ -133,11 +104,11 @@ class UIAScanner:
                         is_enabled=props.get("is_enabled", True),
                         is_visible=props.get("is_visible", True),
                         value=value,
-                        patterns=patterns
+                        patterns=patterns,
+                        value_pattern=value_pattern,
+                        ui_type=control_type # Default ui_type to control_type
                     ))
-                except Exception:
-                    continue
+                except Exception: continue
         except Exception as e:
             print(f"Error in _get_elements: {e}")
-
         return ui_elements
