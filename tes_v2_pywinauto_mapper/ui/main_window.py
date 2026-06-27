@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QPushButton, QCheckBox, QLabel, QProgressBar, QFileDialog,
                              QMessageBox, QApplication, QLineEdit, QFormLayout)
 from PyQt6.QtGui import QPixmap, QImage, QCursor
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QRect
 from PIL import Image
 
 from ui.canvas_view import CanvasView
@@ -17,6 +17,7 @@ from ui.element_form import ElementForm
 from core.window_selector import WindowSelector
 from core.uia_scanner import UIAScanner
 from core.mapping_store import MappingStore
+from core.element import UIElement
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -30,6 +31,7 @@ class MainWindow(QMainWindow):
         self.is_selecting_window = False
         self.last_lbutton_state = False
         self.window_title = ""
+        self.ref_resolution = [1920, 1080] # Default
 
         self._setup_ui()
 
@@ -64,6 +66,11 @@ class MainWindow(QMainWindow):
         self.show_all_cb = QCheckBox("Show All")
         toolbar.addWidget(self.show_all_cb)
 
+        self.group_mode_btn = QPushButton("Map as Group")
+        self.group_mode_btn.setCheckable(True)
+        self.group_mode_btn.toggled.connect(self._on_group_mode_toggled)
+        toolbar.addWidget(self.group_mode_btn)
+
         self.status_label = QLabel("Ready")
         toolbar.addWidget(self.status_label)
 
@@ -76,6 +83,7 @@ class MainWindow(QMainWindow):
 
         self.canvas = CanvasView()
         self.canvas.element_selected.connect(self._on_element_selected)
+        self.canvas.group_zone_selected.connect(self._on_group_zone_selected)
         left_layout.addWidget(self.canvas)
 
         main_layout.addLayout(left_layout, stretch=4)
@@ -123,6 +131,13 @@ class MainWindow(QMainWindow):
             info = WindowSelector.get_window_info(self.selected_handle)
             self.window_title = info.get('title', 'Unknown')
             self.status_label.setText(f"Window: {self.window_title}")
+
+            # Update ref_resolution from current screen
+            self.ref_resolution = [
+                win32api.GetSystemMetrics(win32con.SM_CXSCREEN),
+                win32api.GetSystemMetrics(win32con.SM_CYSCREEN)
+            ]
+
             self._run_scan()
 
     def _run_scan(self):
@@ -143,6 +158,9 @@ class MainWindow(QMainWindow):
         if mapping:
             elements = self.mapping_store.merge_with_scanned_elements(elements, mapping)
 
+        for el in elements:
+            el.ref_resolution = self.ref_resolution
+
         self.canvas.set_elements(elements)
         self.status_label.setText(f"Done: {len(elements)} elements ({self.scanner.backend})")
         self.progress.setVisible(False)
@@ -157,8 +175,6 @@ class MainWindow(QMainWindow):
         self.info_panel.update_info(element)
 
     def _on_element_updated(self, element):
-        # Auto save to store when an element is updated? Or wait for export?
-        # Let's auto-save to the screen file to be robust.
         self._on_export_requested(silent=True)
         self.canvas.update()
 
@@ -167,6 +183,92 @@ class MainWindow(QMainWindow):
             self._run_scan()
         else:
             QMessageBox.warning(self, "Load", "Select a window first to apply mapping.")
+
+    def _on_group_mode_toggled(self, enabled):
+        self.canvas.enable_drag_mode(enabled)
+
+    def _on_group_zone_selected(self, zone_rect: QRect):
+        # zone_rect is in canvas local coordinates (relative to window_rect[0,1])
+        if not self.canvas.window_rect: return
+
+        # Convert zone_rect to global coordinates
+        wx, wy, ww, wh = self.canvas.window_rect
+        global_zone_x1 = zone_rect.left() + wx
+        global_zone_y1 = zone_rect.top() + wy
+        global_zone_x2 = zone_rect.right() + wx
+        global_zone_y2 = zone_rect.bottom() + wy
+
+        members = []
+        for el in self.canvas.elements:
+            el_x1 = el.rectangle[0]
+            el_y1 = el.rectangle[1]
+            el_x2 = el.rectangle[0] + el.rectangle[2]
+            el_y2 = el.rectangle[1] + el.rectangle[3]
+
+            # Overlap check
+            if el_x1 < global_zone_x2 and el_x2 > global_zone_x1 and                el_y1 < global_zone_y2 and el_y2 > global_zone_y1:
+                members.append(el)
+
+        if len(members) < 2:
+            QMessageBox.information(self, "Group Selection", "Select a zone containing at least 2 elements.")
+            self.group_mode_btn.setChecked(False)
+            return
+
+        # Detect predominant type
+        types_in_zone = [m.control_type for m in members]
+        if all(t == "RadioButton" for t in types_in_zone):
+            proposed_ui_type = "radio_group"
+            proposed_action = "select_by_label"
+        elif all(t == "CheckBox" for t in types_in_zone):
+            proposed_ui_type = "checkbox_group"
+            proposed_action = "check_by_label"
+        elif all(t == "TabItem" for t in types_in_zone):
+            proposed_ui_type = "tab_bar"
+            proposed_action = "click_by_label"
+        else:
+            proposed_ui_type = "radio_group"
+            proposed_action = "select_by_label"
+
+        # Build group bounding box (union of members)
+        left   = min(m.rectangle[0] for m in members)
+        top    = min(m.rectangle[1] for m in members)
+        right  = max(m.rectangle[0] + m.rectangle[2] for m in members)
+        bottom = max(m.rectangle[1] + m.rectangle[3] for m in members)
+
+        rw, rh = self.ref_resolution
+        choices = []
+        for m in members:
+            cx = m.rectangle[0] + m.rectangle[2] / 2
+            cy = m.rectangle[1] + m.rectangle[3] / 2
+            choices.append({
+                "label": m.name or m.logical_key or f"option_{len(choices)}",
+                "x": round(cx / rw, 6),
+                "y": round(cy / rh, 6),
+                "stable_id": m.automation_id or f"{m.name}_{m.control_type}"
+            })
+
+        group_el = UIElement(
+            name="",
+            automation_id="",
+            control_type=proposed_ui_type,
+            class_name="",
+            framework_id="",
+            rectangle=[left, top, right - left, bottom - top],
+            is_enabled=True,
+            is_visible=True,
+            ui_type=proposed_ui_type,
+            action=proposed_action,
+            logical_key="",
+            choices=choices,
+            supported_patterns=[],
+            execution_hint="pyautogui_fallback",
+        )
+        group_el.ref_resolution = self.ref_resolution
+
+        self.canvas.elements.append(group_el)
+        self.canvas.add_group_overlay(group_el)
+        self.element_form.set_element(group_el)
+        self.group_mode_btn.setChecked(False)
 
     def _on_export_requested(self, silent=False):
         if not self.canvas.elements: return
@@ -178,10 +280,8 @@ class MainWindow(QMainWindow):
             if not silent: QMessageBox.warning(self, "Export", "App Name and Screen Name are required.")
             return
 
-        resolution = (win32api.GetSystemMetrics(win32con.SM_CXSCREEN), win32api.GetSystemMetrics(win32con.SM_CYSCREEN))
-
         file_path = self.mapping_store.save_mapping(
-            app_name, screen_name, self.scanner.backend, self.window_title, self.canvas.elements, resolution
+            app_name, screen_name, self.scanner.backend, self.window_title, self.canvas.elements, self.ref_resolution
         )
 
         if not silent:

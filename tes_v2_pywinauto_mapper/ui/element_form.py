@@ -1,12 +1,13 @@
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLineEdit,
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
                              QComboBox, QTextEdit, QPushButton, QLabel, QGroupBox, QCheckBox)
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.element import UIElement
+from core.utils import name_to_logical_key
 
 UI_TYPES = [
     "button", "text_input", "checkbox", "radio", "dropdown", "label",
     "icon", "tab", "menu_item", "toggle", "date_picker", "table_cell",
-    "scroll_area", "drag_handle", "other"
+    "scroll_area", "drag_handle", "radio_group", "checkbox_group", "tab_bar", "other"
 ]
 
 UI_TYPE_ACTIONS = {
@@ -24,8 +25,74 @@ UI_TYPE_ACTIONS = {
     "table_cell": ["click", "double_click", "click_then_type", "none"],
     "scroll_area": ["scroll"],
     "drag_handle": ["drag"],
+    "radio_group": ["select_by_label", "select_by_index"],
+    "checkbox_group": ["check_by_label", "uncheck_by_label", "check_by_index"],
+    "tab_bar": ["click_by_label", "click_by_index"],
     "other": ["click", "hover", "none"],
 }
+
+class ChoiceListWidget(QWidget):
+    """
+    Editable list of {label, x, y} choices for radio_group / checkbox_group / tab_bar.
+    Emits choices_changed(list[dict]) when the user edits.
+    """
+    choices_changed = pyqtSignal(list)
+
+    def __init__(self):
+        super().__init__()
+        self._layout = QVBoxLayout(self)
+        self._rows = []   # list of (QWidget row, QLineEdit label_edit, float x, float y, str stable_id)
+
+        self.add_btn = QPushButton("+ Add choice manually")
+        self.add_btn.clicked.connect(lambda: self._add_row("", 0.0, 0.0, ""))
+        self._layout.addWidget(self.add_btn)
+
+    def set_choices(self, choices: list):
+        # Clear existing rows
+        for row_tuple in self._rows:
+            row_tuple[0].setParent(None)
+        self._rows.clear()
+        for c in choices:
+            self._add_row(c.get("label", ""), c.get("x", 0.0), c.get("y", 0.0),
+                          c.get("stable_id", ""))
+
+    def _add_row(self, label, x, y, stable_id):
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 2, 0, 2)
+
+        label_edit = QLineEdit(label)
+        label_edit.setPlaceholderText("Option label")
+
+        coords_label = QLabel(f"({x:.3f}, {y:.3f})")
+        coords_label.setStyleSheet("color: #888; font-size: 10px;")
+
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedWidth(24)
+        remove_btn.clicked.connect(lambda: self._remove_row(row))
+
+        label_edit.textChanged.connect(self._emit_changes)
+
+        row_layout.addWidget(label_edit)
+        row_layout.addWidget(coords_label)
+        row_layout.addWidget(remove_btn)
+
+        self._rows.append((row, label_edit, x, y, stable_id))
+        self._layout.insertWidget(self._layout.count() - 1, row)
+
+    def _remove_row(self, row_widget):
+        self._rows = [r for r in self._rows if r[0] is not row_widget]
+        row_widget.setParent(None)
+        self._emit_changes()
+
+    def _emit_changes(self):
+        self.choices_changed.emit(self.get_choices())
+
+    def get_choices(self) -> list:
+        return [
+            {"label": r[1].text().strip(), "x": r[2], "y": r[3], "stable_id": r[4]}
+            for r in self._rows
+        ]
 
 class ElementForm(QWidget):
     element_updated = pyqtSignal(object)
@@ -73,6 +140,13 @@ class ElementForm(QWidget):
         self.form_layout.addRow("Notes:", self.notes_edit)
         self.form_layout.addRow("UIA Patterns:", self.patterns_label)
 
+        # Choice Group Widget
+        self.choice_list = ChoiceListWidget()
+        self.choice_group_widget = QGroupBox("Choices")
+        choice_layout = QVBoxLayout(self.choice_group_widget)
+        choice_layout.addWidget(self.choice_list)
+        self.form_layout.addRow(self.choice_group_widget)
+
         self.layout.addWidget(self.group)
 
         self.save_btn = QPushButton("Update Element")
@@ -101,6 +175,9 @@ class ElementForm(QWidget):
         if label:
             label.setVisible(show_expected)
 
+        show_choices = ui_type in ("radio_group", "checkbox_group", "tab_bar")
+        self.choice_group_widget.setVisible(show_choices)
+
     def _validate_form(self):
         key = self.logical_key_edit.text().strip()
         is_valid = len(key) > 0
@@ -120,9 +197,15 @@ class ElementForm(QWidget):
             self.clear_form()
             return
 
-        # Automatic Logical Key suggestion
-        if not element.logical_key and element.automation_id:
-            element.logical_key = element.automation_id
+        # Automatic Logical Key suggestion (3-priority cascade)
+        if not element.logical_key:
+            if element.automation_id and not element.automation_id.isdigit():
+                element.logical_key = element.automation_id
+            elif element.name.strip():
+                element.logical_key = name_to_logical_key(element.name)
+            else:
+                rect_hash = abs(hash(str(element.rectangle))) % 10000
+                element.logical_key = f"{element.control_type.lower()}_{rect_hash}"
 
         self.logical_key_edit.setText(element.logical_key)
 
@@ -142,6 +225,9 @@ class ElementForm(QWidget):
         self.expected_value_edit.setText(getattr(element, "expected_value", ""))
         self.value_pattern_cb.setChecked(getattr(element, "value_pattern", False))
         self.notes_edit.setText(getattr(element, "notes", ""))
+
+        # Set choices
+        self.choice_list.set_choices(element.choices or [])
 
         patterns = getattr(element, 'supported_patterns', [])
         hint = getattr(element, 'execution_hint', 'pyautogui_fallback')
@@ -203,6 +289,7 @@ class ElementForm(QWidget):
         self.current_element.expected_value = self.expected_value_edit.text().strip()
         self.current_element.value_pattern = self.value_pattern_cb.isChecked()
         self.current_element.notes = self.notes_edit.toPlainText().strip()
+        self.current_element.choices = self.choice_list.get_choices()
 
         self.element_updated.emit(self.current_element)
 
@@ -214,4 +301,5 @@ class ElementForm(QWidget):
         self.value_pattern_cb.setChecked(False)
         self.notes_edit.clear()
         self.patterns_label.clear()
+        self.choice_list.set_choices([])
         self._validate_form()

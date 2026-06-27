@@ -28,6 +28,7 @@ class UIElement:
 
     # Reference resolution for relative conversion
     ref_resolution: Optional[List[int]] = None
+    choices: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -51,6 +52,9 @@ class UIElement:
             "value_pattern": self.value_pattern,
             "stable_id": self.automation_id if self.automation_id else f"{self.name}_{self.control_type}"
         }
+
+        if self.choices:
+            data["choices"] = self.choices
 
         # Convert rectangle [x, y, w, h] to bbox_relative [x, y, w, h] as floats (0..1)
         if self.ref_resolution and len(self.ref_resolution) == 2:
@@ -87,5 +91,6 @@ class UIElement:
             notes=data.get("notes", ""),
             path=data.get("path", ""),
             expected_value=data.get("expected_value", ""),
-            value_pattern=data.get("value_pattern", False)
+            value_pattern=data.get("value_pattern", False),
+            choices=data.get("choices", [])
         )
