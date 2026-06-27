@@ -55,6 +55,82 @@ class UIAScanner:
                 return self._get_elements(window, show_all)
             except: return []
 
+    def _detect_true_patterns(self, ctrl) -> List[str]:
+        """
+        Probe which UIA Control Patterns the element truly supports by attempting
+        to access the COM interface for each pattern.
+        Uses pywinauto's iface_* properties which internally call get_elem_interface()
+        and raise NoPatternInterfaceError if the COM interface is absent.
+        This avoids false positives from hasattr() which finds inherited base class methods.
+        """
+        from pywinauto.uia_defines import NoPatternInterfaceError
+
+        detected = []
+        probes = [
+            ("Invoke",         lambda c: c.iface_invoke),
+            ("Toggle",         lambda c: c.iface_toggle),
+            ("SelectionItem",  lambda c: c.iface_selection_item),
+            ("Selection",      lambda c: c.iface_selection),
+            ("Value",          lambda c: c.iface_value),
+            ("RangeValue",     lambda c: c.iface_range_value),
+            ("ExpandCollapse", lambda c: c.iface_expand_collapse),
+            ("Text",           lambda c: c.iface_text),
+            ("Grid",           lambda c: c.iface_grid),
+            ("Scroll",         lambda c: c.iface_scroll),
+        ]
+
+        for pattern_name, probe_fn in probes:
+            try:
+                iface = probe_fn(ctrl)
+                if iface is not None:
+                    detected.append(pattern_name)
+            except (NoPatternInterfaceError, Exception):
+                pass
+
+        return detected
+
+    def _infer_action_from_patterns(self, patterns: List[str], control_type: str) -> tuple:
+        """
+        Infer the best default (ui_type, action) from confirmed UIA patterns.
+        Returns ("", "") if no inference is possible (caller falls back to control_type mapping).
+        """
+        ctype = control_type.lower()
+
+        if "Toggle" in patterns:
+            return ("checkbox", "check")
+
+        if "SelectionItem" in patterns and "Toggle" not in patterns:
+            if ctype in ("radiobutton",):
+                return ("radio", "select")
+            if ctype in ("tabitem",):
+                return ("tab", "click")
+            return ("radio", "select")  # Default to radio for SelectionItem
+
+        if "RangeValue" in patterns:
+            return ("slider", "set_value")
+
+        if "Grid" in patterns:
+            return ("table_cell", "click")
+
+        if "ExpandCollapse" in patterns and "Selection" in patterns:
+            return ("dropdown", "select")
+
+        if "ExpandCollapse" in patterns:
+            return ("tree_item", "expand")
+
+        if "Value" in patterns and "Invoke" not in patterns:
+            return ("text_input", "click_then_type")
+
+        if "Invoke" in patterns:
+            if ctype in ("menuitem",):
+                return ("menu_item", "click")
+            return ("button", "click")
+
+        if "Scroll" in patterns:
+            return ("scroll_area", "scroll")
+
+        return ("", "")  # No inference possible
+
     def _get_elements(self, window, show_all: bool) -> List[UIElement]:
         ui_elements = []
         try:
@@ -75,16 +151,15 @@ class UIAScanner:
                         has_name = bool(name.strip())
                         if not (is_interactive or has_name): continue
 
-                    patterns = []
+                    supported_patterns = []
                     value_pattern = False
+                    execution_hint = "pyautogui_fallback"
+
                     if self.backend == "uia":
-                        if hasattr(ctrl, 'get_value'):
-                            patterns.append("Value")
-                            value_pattern = True
-                        if hasattr(ctrl, 'invoke'): patterns.append("Invoke")
-                        if hasattr(ctrl, 'select'): patterns.append("SelectionItem")
-                        if hasattr(ctrl, 'toggle'): patterns.append("Toggle")
-                        if hasattr(ctrl, 'scroll'): patterns.append("Scroll")
+                        supported_patterns = self._detect_true_patterns(ctrl)
+                        value_pattern = "Value" in supported_patterns
+                        if supported_patterns:
+                            execution_hint = "uia_native"
 
                     value = ""
                     try:
@@ -93,6 +168,11 @@ class UIAScanner:
                             txts = ctrl.texts()
                             if txts: value = txts[0]
                     except: pass
+
+                    # Infer ui_type and action from confirmed patterns
+                    inferred_ui_type, inferred_action = self._infer_action_from_patterns(
+                        supported_patterns, control_type
+                    )
 
                     ui_elements.append(UIElement(
                         name=name,
@@ -104,9 +184,11 @@ class UIAScanner:
                         is_enabled=props.get("is_enabled", True),
                         is_visible=props.get("is_visible", True),
                         value=value,
-                        patterns=patterns,
+                        supported_patterns=supported_patterns,
                         value_pattern=value_pattern,
-                        ui_type=control_type # Default ui_type to control_type
+                        ui_type=inferred_ui_type or control_type,   # use inference or fall back to raw control_type
+                        action=inferred_action,
+                        execution_hint=execution_hint
                     ))
                 except Exception: continue
         except Exception as e:

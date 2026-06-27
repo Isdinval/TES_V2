@@ -54,7 +54,7 @@ class ElementInfoPanel(QWidget):
         self.class_edit.setText(element.class_name)
         self.framework_edit.setText(element.framework_id)
         self.rect_edit.setText(str(element.rectangle))
-        self.patterns_edit.setText(", ".join(element.patterns))
+        self.patterns_edit.setText(", ".join(element.supported_patterns))
 
     def clear_info(self):
         self.auto_id_edit.clear()

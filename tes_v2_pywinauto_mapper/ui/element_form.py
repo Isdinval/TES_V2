@@ -61,6 +61,9 @@ class ElementForm(QWidget):
 
         self.value_pattern_cb = QCheckBox("Supports Value Pattern")
 
+        self.patterns_label = QLabel("")
+        self.patterns_label.setStyleSheet("color: #888; font-size: 10px;")
+
         self.form_layout.addRow("Logical Key*:", self.logical_key_edit)
         self.form_layout.addRow("UI Type:", self.ui_type_combo)
         self.form_layout.addRow("Action:", self.action_combo)
@@ -68,6 +71,7 @@ class ElementForm(QWidget):
         self.form_layout.addRow("Expected Value:", self.expected_value_edit)
         self.form_layout.addRow("Value Pattern:", self.value_pattern_cb)
         self.form_layout.addRow("Notes:", self.notes_edit)
+        self.form_layout.addRow("UIA Patterns:", self.patterns_label)
 
         self.layout.addWidget(self.group)
 
@@ -139,9 +143,23 @@ class ElementForm(QWidget):
         self.value_pattern_cb.setChecked(getattr(element, "value_pattern", False))
         self.notes_edit.setText(getattr(element, "notes", ""))
 
+        patterns = getattr(element, 'supported_patterns', [])
+        hint = getattr(element, 'execution_hint', 'pyautogui_fallback')
+        if patterns:
+            self.patterns_label.setText(f"{', '.join(patterns)} [{hint}]")
+        else:
+            self.patterns_label.setText("none detected (pyautogui fallback)")
+
         self._validate_form()
 
     def _suggest_ui_type(self, element: UIElement):
+        # If scanner already inferred a ui_type from patterns, use it directly
+        if element.ui_type and element.ui_type not in ("", "Unknown", element.control_type):
+            idx = self.ui_type_combo.findText(element.ui_type)
+            if idx >= 0:
+                self.ui_type_combo.setCurrentIndex(idx)
+                return  # Pattern-based inference is more reliable than our heuristic
+
         ctype = element.control_type.lower()
         mapping = {
             "button": "button",
@@ -195,4 +213,5 @@ class ElementForm(QWidget):
         self.expected_value_edit.clear()
         self.value_pattern_cb.setChecked(False)
         self.notes_edit.clear()
+        self.patterns_label.clear()
         self._validate_form()

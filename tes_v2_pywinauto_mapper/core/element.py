@@ -13,7 +13,7 @@ class UIElement:
     is_enabled: bool
     is_visible: bool
     value: Optional[str] = None
-    patterns: List[str] = field(default_factory=list)
+    supported_patterns: List[str] = field(default_factory=list)
     handle: Any = None # Native handle if available
 
     # Business / Mapping properties
@@ -24,6 +24,7 @@ class UIElement:
     path: str = ""
     expected_value: str = ""
     value_pattern: bool = False
+    execution_hint: str = "pyautogui_fallback"
 
     # Reference resolution for relative conversion
     ref_resolution: Optional[List[int]] = None
@@ -42,7 +43,8 @@ class UIElement:
             "is_enabled": self.is_enabled,
             "is_visible": self.is_visible,
             "value": self.value,
-            "patterns": self.patterns,
+            "supported_patterns": self.supported_patterns,
+            "execution_hint": self.execution_hint,
             "notes": self.notes,
             "path": self.path,
             "expected_value": self.expected_value,
@@ -80,7 +82,8 @@ class UIElement:
             is_enabled=data.get("is_enabled", True),
             is_visible=data.get("is_visible", True),
             value=data.get("value"),
-            patterns=data.get("patterns", []),
+            supported_patterns=data.get("supported_patterns", data.get("patterns", [])),
+            execution_hint=data.get("execution_hint", "pyautogui_fallback"),
             notes=data.get("notes", ""),
             path=data.get("path", ""),
             expected_value=data.get("expected_value", ""),

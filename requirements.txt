@@ -1,6 +1,7 @@
 PyQt6>=6.6.0
 mss>=9.0.0
 Pillow>=10.0.0
+pywinauto
 # OmniParser V2 dependencies (needed only for YOLO+Florence detection):
 # ultralytics>=8.0.0
 # transformers>=4.38.0
