@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QScrollArea, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QScrollArea, QVBoxLayout, QLabel, QToolTip
 from PyQt6.QtGui import QPainter, QPen, QColor, QPixmap, QImage, QMouseEvent
 from PyQt6.QtCore import Qt, QRect, pyqtSignal, QPoint
 from typing import List, Optional
@@ -17,7 +17,7 @@ class CanvasView(QScrollArea):
 
         self.screenshot_pixmap: Optional[QPixmap] = None
         self.elements: List[UIElement] = []
-        self.window_rect: Optional[tuple] = None # (L, T, R, B)
+        self.window_rect: Optional[tuple] = None
         self.hovered_element: Optional[UIElement] = None
         self.selected_element: Optional[UIElement] = None
 
@@ -44,26 +44,29 @@ class CanvasView(QScrollArea):
         if self.screenshot_pixmap:
             painter.drawPixmap(0, 0, self.screenshot_pixmap)
 
-        # Draw bboxes
         for el in self.elements:
             rect = self._get_local_rect(el.rectangle)
 
             if el == self.selected_element:
-                pen = QPen(QColor(255, 0, 0), 2)
+                pen = QPen(QColor(255, 0, 0), 2) # Red for selected
+            elif el.logical_key:
+                pen = QPen(QColor(0, 0, 255), 2) # Blue for mapped
             elif el == self.hovered_element:
-                pen = QPen(QColor(255, 255, 0), 2)
+                pen = QPen(QColor(255, 255, 0), 2) # Yellow for hover
             else:
-                pen = QPen(QColor(0, 255, 0), 1)
+                pen = QPen(QColor(0, 255, 0), 1) # Green for discovered
 
             painter.setPen(pen)
             painter.drawRect(rect)
 
+            # Draw logical key if present
+            if el.logical_key and not (el == self.hovered_element):
+                painter.setPen(QColor(0, 0, 255))
+                painter.drawText(rect.topLeft() + QPoint(2, -2), el.logical_key)
+
     def _get_local_rect(self, global_rect: List[int]) -> QRect:
-        # global_rect is [x, y, w, h] in screen coordinates
-        # self.window_rect is (L, T, R, B)
         if not self.window_rect:
             return QRect(global_rect[0], global_rect[1], global_rect[2], global_rect[3])
-
         lx = global_rect[0] - self.window_rect[0]
         ly = global_rect[1] - self.window_rect[1]
         return QRect(lx, ly, global_rect[2], global_rect[3])
@@ -71,7 +74,6 @@ class CanvasView(QScrollArea):
     def _label_mouse_move_event(self, event: QMouseEvent):
         pos = event.pos()
         found = None
-        # Check from last to first (assuming smaller elements are later/on top)
         for el in reversed(self.elements):
             if self._get_local_rect(el.rectangle).contains(pos):
                 found = el
@@ -79,6 +81,13 @@ class CanvasView(QScrollArea):
 
         if found != self.hovered_element:
             self.hovered_element = found
+            if found:
+                tooltip = f"<b>{found.control_type}</b>: {found.name}<br>"
+                if found.automation_id: tooltip += f"ID: {found.automation_id}<br>"
+                if found.logical_key: tooltip += f"Key: <b>{found.logical_key}</b>"
+                QToolTip.showText(event.globalPosition().toPoint(), tooltip, self.label)
+            else:
+                QToolTip.hideText()
             self.element_hovered.emit(found)
             self.label.update()
 
