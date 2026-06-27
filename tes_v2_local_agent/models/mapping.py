@@ -42,6 +42,9 @@ class FieldMapping(BaseModel):
     scroll_container: Optional[Dict[str, Any]] = None
     scrollbar_target: Optional[Dict[str, Any]] = None
     drag_target: Optional[str] = None
+    supported_patterns: Optional[List[str]] = []
+    execution_hint: Optional[str] = "pyautogui_fallback"
+    pywinauto_selector: Optional[Dict[str, Any]] = None
 
 class ScreenMeta(BaseModel):
     app: str

@@ -21,12 +21,9 @@ class ElementInfoPanel(QWidget):
         self.rect_edit = QLineEdit()
         self.patterns_edit = QTextEdit()
         self.patterns_edit.setMaximumHeight(60)
-        self.toggle_state_edit = QLineEdit()
-        self.choices_edit = QLineEdit()
 
         for edit in [self.auto_id_edit, self.name_edit, self.type_edit,
-                     self.class_edit, self.framework_edit, self.rect_edit,
-                     self.toggle_state_edit, self.choices_edit]:
+                     self.class_edit, self.framework_edit, self.rect_edit]:
             edit.setReadOnly(True)
         self.patterns_edit.setReadOnly(True)
 
@@ -37,8 +34,6 @@ class ElementInfoPanel(QWidget):
         self.form_layout.addRow("FrameworkId:", self.framework_edit)
         self.form_layout.addRow("Rectangle:", self.rect_edit)
         self.form_layout.addRow("Patterns:", self.patterns_edit)
-        self.form_layout.addRow("Toggle State:", self.toggle_state_edit)
-        self.form_layout.addRow("Choices:", self.choices_edit)
 
         self.layout.addWidget(self.group)
 
@@ -59,24 +54,7 @@ class ElementInfoPanel(QWidget):
         self.class_edit.setText(element.class_name)
         self.framework_edit.setText(element.framework_id)
         self.rect_edit.setText(str(element.rectangle))
-        self.patterns_edit.setText(", ".join(element.patterns))
-
-        # P1-C: Display toggle_state and choices count
-        if element.toggle_state:
-            self.toggle_state_edit.setText(element.toggle_state)
-            self.toggle_state_edit.setVisible(True)
-            self.form_layout.labelForField(self.toggle_state_edit).setVisible(True)
-        else:
-            self.toggle_state_edit.setVisible(False)
-            self.form_layout.labelForField(self.toggle_state_edit).setVisible(False)
-
-        if element.choices:
-            self.choices_edit.setText(f"{len(element.choices)} items detected")
-            self.choices_edit.setVisible(True)
-            self.form_layout.labelForField(self.choices_edit).setVisible(True)
-        else:
-            self.choices_edit.setVisible(False)
-            self.form_layout.labelForField(self.choices_edit).setVisible(False)
+        self.patterns_edit.setText(", ".join(element.supported_patterns))
 
     def clear_info(self):
         self.auto_id_edit.clear()
@@ -86,5 +64,3 @@ class ElementInfoPanel(QWidget):
         self.framework_edit.clear()
         self.rect_edit.clear()
         self.patterns_edit.clear()
-        self.toggle_state_edit.clear()
-        self.choices_edit.clear()

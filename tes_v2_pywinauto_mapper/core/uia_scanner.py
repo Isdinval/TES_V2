@@ -11,7 +11,7 @@ class UIAScanner:
     INTERACTIVE_TYPES = {
         "Button", "Edit", "ComboBox", "CheckBox", "RadioButton",
         "List", "DataGrid", "TabItem", "MenuItem", "Hyperlink", "TreeItem",
-        "ListItem", "HeaderItem", "ListBox", "Slider", "Spinner"
+        "ListItem", "HeaderItem"
     }
 
     def __init__(self):
@@ -55,40 +55,81 @@ class UIAScanner:
                 return self._get_elements(window, show_all)
             except: return []
 
-    def _extract_choices(self, ctrl, window_rect: Optional[tuple] = None) -> List[dict]:
+    def _detect_true_patterns(self, ctrl) -> List[str]:
         """
-        For ComboBox, List, RadioButton (and RadioButton siblings): extract child items.
-        Returns list of {"label": str, "x": float_absolute, "y": float_absolute}
-        where x, y are the CENTER of each child item's rectangle (absolute screen coords).
+        Probe which UIA Control Patterns the element truly supports by attempting
+        to access the COM interface for each pattern.
+        Uses pywinauto's iface_* properties which internally call get_elem_interface()
+        and raise NoPatternInterfaceError if the COM interface is absent.
+        This avoids false positives from hasattr() which finds inherited base class methods.
         """
-        choices = []
-        try:
-            target_ctrls = []
-            control_type = ctrl.element_info.control_type
+        from pywinauto.uia_defines import NoPatternInterfaceError
 
-            if control_type in ("ComboBox", "List", "ListBox"):
-                target_ctrls = [child for child in ctrl.children() if child.element_info.control_type == "ListItem"]
-            elif control_type == "RadioButton":
-                parent = ctrl.parent()
-                if parent:
-                    target_ctrls = [child for child in parent.children() if child.element_info.control_type == "RadioButton"]
+        detected = []
+        probes = [
+            ("Invoke",         lambda c: c.iface_invoke),
+            ("Toggle",         lambda c: c.iface_toggle),
+            ("SelectionItem",  lambda c: c.iface_selection_item),
+            ("Selection",      lambda c: c.iface_selection),
+            ("Value",          lambda c: c.iface_value),
+            ("RangeValue",     lambda c: c.iface_range_value),
+            ("ExpandCollapse", lambda c: c.iface_expand_collapse),
+            ("Text",           lambda c: c.iface_text),
+            ("Grid",           lambda c: c.iface_grid),
+            ("Scroll",         lambda c: c.iface_scroll),
+        ]
 
-            for item in target_ctrls:
-                try:
-                    i_rect = item.rectangle()
-                    center_x = i_rect.left + i_rect.width() / 2
-                    center_y = i_rect.top + i_rect.height() / 2
-                    label = item.window_text() or ""
-                    choices.append({
-                        "label": label,
-                        "x": float(center_x),
-                        "y": float(center_y)
-                    })
-                except Exception:
-                    continue
-        except Exception:
-            pass
-        return choices
+        for pattern_name, probe_fn in probes:
+            try:
+                iface = probe_fn(ctrl)
+                if iface is not None:
+                    detected.append(pattern_name)
+            except (NoPatternInterfaceError, Exception):
+                pass
+
+        return detected
+
+    def _infer_action_from_patterns(self, patterns: List[str], control_type: str) -> tuple:
+        """
+        Infer the best default (ui_type, action) from confirmed UIA patterns.
+        Returns ("", "") if no inference is possible (caller falls back to control_type mapping).
+        """
+        ctype = control_type.lower()
+
+        if "Toggle" in patterns:
+            return ("checkbox", "check")
+
+        if "SelectionItem" in patterns and "Toggle" not in patterns:
+            if ctype in ("radiobutton",):
+                return ("radio", "select")
+            if ctype in ("tabitem",):
+                return ("tab", "click")
+            return ("radio", "select")  # Default to radio for SelectionItem
+
+        if "RangeValue" in patterns:
+            return ("slider", "set_value")
+
+        if "Grid" in patterns:
+            return ("table_cell", "click")
+
+        if "ExpandCollapse" in patterns and "Selection" in patterns:
+            return ("dropdown", "select")
+
+        if "ExpandCollapse" in patterns:
+            return ("tree_item", "expand")
+
+        if "Value" in patterns and "Invoke" not in patterns:
+            return ("text_input", "click_then_type")
+
+        if "Invoke" in patterns:
+            if ctype in ("menuitem",):
+                return ("menu_item", "click")
+            return ("button", "click")
+
+        if "Scroll" in patterns:
+            return ("scroll_area", "scroll")
+
+        return ("", "")  # No inference possible
 
     def _get_elements(self, window, show_all: bool) -> List[UIElement]:
         ui_elements = []
@@ -110,29 +151,15 @@ class UIAScanner:
                         has_name = bool(name.strip())
                         if not (is_interactive or has_name): continue
 
-                    patterns = []
+                    supported_patterns = []
                     value_pattern = False
-                    toggle_state = None
-                    if self.backend == "uia":
-                        if hasattr(ctrl, 'get_value'):
-                            patterns.append("Value")
-                            value_pattern = True
-                        if hasattr(ctrl, 'invoke'): patterns.append("Invoke")
-                        if hasattr(ctrl, 'select'): patterns.append("SelectionItem")
-                        if hasattr(ctrl, 'toggle'): patterns.append("Toggle")
-                        if hasattr(ctrl, 'scroll'): patterns.append("Scroll")
+                    execution_hint = "pyautogui_fallback"
 
-                        # P1-B: Read toggle_state
-                        try:
-                            if control_type == "CheckBox":
-                                # TogglePattern: toggle_state() returns 0 (off), 1 (on), 2 (indeterminate)
-                                ts = ctrl.get_toggle_state()
-                                toggle_state = {0: "off", 1: "on", 2: "indeterminate"}.get(ts, None)
-                            elif control_type == "RadioButton":
-                                # SelectionItemPattern
-                                toggle_state = "selected" if ctrl.is_selected() else "unselected"
-                        except Exception:
-                            pass
+                    if self.backend == "uia":
+                        supported_patterns = self._detect_true_patterns(ctrl)
+                        value_pattern = "Value" in supported_patterns
+                        if supported_patterns:
+                            execution_hint = "uia_native"
 
                     value = ""
                     try:
@@ -142,22 +169,10 @@ class UIAScanner:
                             if txts: value = txts[0]
                     except: pass
 
-                    # P1-A: Populate pywinauto_selector
-                    selector = {}
-                    if automation_id and not automation_id.isdigit():
-                        selector["automation_id"] = automation_id
-                    if control_type and control_type != "Unknown":
-                        selector["control_type"] = control_type
-                    if name.strip():
-                        selector["title"] = name.strip()
-                    if class_name.strip():
-                        selector["class_name"] = class_name.strip()
-                    pywinauto_selector = selector if selector else None
-
-                    # P0-B: Extract choices
-                    choices = []
-                    if self.backend == "uia" and control_type in ("ComboBox", "List", "RadioButton", "ListBox"):
-                        choices = self._extract_choices(ctrl)
+                    # Infer ui_type and action from confirmed patterns
+                    inferred_ui_type, inferred_action = self._infer_action_from_patterns(
+                        supported_patterns, control_type
+                    )
 
                     ui_elements.append(UIElement(
                         name=name,
@@ -169,12 +184,11 @@ class UIAScanner:
                         is_enabled=props.get("is_enabled", True),
                         is_visible=props.get("is_visible", True),
                         value=value,
-                        patterns=patterns,
+                        supported_patterns=supported_patterns,
                         value_pattern=value_pattern,
-                        ui_type=control_type, # Default ui_type to control_type
-                        toggle_state=toggle_state,
-                        pywinauto_selector=pywinauto_selector,
-                        choices=choices
+                        ui_type=inferred_ui_type or control_type,   # use inference or fall back to raw control_type
+                        action=inferred_action,
+                        execution_hint=execution_hint
                     ))
                 except Exception: continue
         except Exception as e:

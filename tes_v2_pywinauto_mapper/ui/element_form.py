@@ -6,14 +6,14 @@ from core.element import UIElement
 UI_TYPES = [
     "button", "text_input", "checkbox", "radio", "dropdown", "label",
     "icon", "tab", "menu_item", "toggle", "date_picker", "table_cell",
-    "scroll_area", "drag_handle", "hyperlink", "slider", "spinner", "tree_item", "other"
+    "scroll_area", "drag_handle", "other"
 ]
 
 UI_TYPE_ACTIONS = {
     "button": ["click", "double_click", "right_click", "hover"],
     "text_input": ["click_then_type", "click", "triple_click_then_type"],
     "checkbox": ["check", "uncheck", "click"],
-    "radio": ["select", "click"],
+    "radio": ["click", "select"],
     "dropdown": ["select", "click"],
     "label": ["hover", "none"],
     "icon": ["click", "double_click", "right_click", "hover"],
@@ -24,10 +24,6 @@ UI_TYPE_ACTIONS = {
     "table_cell": ["click", "double_click", "click_then_type", "none"],
     "scroll_area": ["scroll"],
     "drag_handle": ["drag"],
-    "hyperlink": ["click", "hover"],
-    "slider": ["set_value", "click"],
-    "spinner": ["triple_click_then_type", "click_then_type"],
-    "tree_item": ["click", "double_click", "expand", "select"],
     "other": ["click", "hover", "none"],
 }
 
@@ -65,6 +61,9 @@ class ElementForm(QWidget):
 
         self.value_pattern_cb = QCheckBox("Supports Value Pattern")
 
+        self.patterns_label = QLabel("")
+        self.patterns_label.setStyleSheet("color: #888; font-size: 10px;")
+
         self.form_layout.addRow("Logical Key*:", self.logical_key_edit)
         self.form_layout.addRow("UI Type:", self.ui_type_combo)
         self.form_layout.addRow("Action:", self.action_combo)
@@ -72,6 +71,7 @@ class ElementForm(QWidget):
         self.form_layout.addRow("Expected Value:", self.expected_value_edit)
         self.form_layout.addRow("Value Pattern:", self.value_pattern_cb)
         self.form_layout.addRow("Notes:", self.notes_edit)
+        self.form_layout.addRow("UIA Patterns:", self.patterns_label)
 
         self.layout.addWidget(self.group)
 
@@ -95,7 +95,7 @@ class ElementForm(QWidget):
         self.action_combo.addItems(actions)
 
         # Dynamic visibility
-        show_expected = ui_type in ["dropdown", "radio", "checkbox", "table_cell", "date_picker", "slider"]
+        show_expected = ui_type in ["dropdown", "radio", "checkbox", "table_cell", "date_picker"]
         self.expected_value_edit.setVisible(show_expected)
         label = self.form_layout.labelForField(self.expected_value_edit)
         if label:
@@ -143,9 +143,23 @@ class ElementForm(QWidget):
         self.value_pattern_cb.setChecked(getattr(element, "value_pattern", False))
         self.notes_edit.setText(getattr(element, "notes", ""))
 
+        patterns = getattr(element, 'supported_patterns', [])
+        hint = getattr(element, 'execution_hint', 'pyautogui_fallback')
+        if patterns:
+            self.patterns_label.setText(f"{', '.join(patterns)} [{hint}]")
+        else:
+            self.patterns_label.setText("none detected (pyautogui fallback)")
+
         self._validate_form()
 
     def _suggest_ui_type(self, element: UIElement):
+        # If scanner already inferred a ui_type from patterns, use it directly
+        if element.ui_type and element.ui_type not in ("", "Unknown", element.control_type):
+            idx = self.ui_type_combo.findText(element.ui_type)
+            if idx >= 0:
+                self.ui_type_combo.setCurrentIndex(idx)
+                return  # Pattern-based inference is more reliable than our heuristic
+
         ctype = element.control_type.lower()
         mapping = {
             "button": "button",
@@ -154,22 +168,14 @@ class ElementForm(QWidget):
             "radiobutton": "radio",
             "combobox": "dropdown",
             "list": "dropdown",
-            "listitem": "dropdown",
             "text": "label",
             "image": "icon",
             "tabitem": "tab",
             "menuitem": "menu_item",
             "datagrid": "table_cell",
-            "dataitem": "table_cell",
-            "hyperlink": "hyperlink",
-            "slider": "slider",
-            "spinner": "spinner",
-            "treeitem": "tree_item",
-            "scrollbar": "scroll_area",
             "pane": "other",
             "window": "other",
             "group": "other",
-            "custom": "other",
         }
         suggested = mapping.get(ctype, "other")
 
@@ -207,4 +213,5 @@ class ElementForm(QWidget):
         self.expected_value_edit.clear()
         self.value_pattern_cb.setChecked(False)
         self.notes_edit.clear()
+        self.patterns_label.clear()
         self._validate_form()

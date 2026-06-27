@@ -63,10 +63,8 @@ class MappingStore:
         # Build lookup table for saved elements
         # Priority 1: AutomationId
         # Priority 2: Name + ControlType
-        # Priority 3: StableId
         lookup_auto_id = {el["automation_id"]: el for el in saved_elements if el.get("automation_id")}
         lookup_name_type = {(el["name"], el["control_type"]): el for el in saved_elements if el.get("name")}
-        lookup_stable_id = {el.get("stable_id"): el for el in saved_elements if el.get("stable_id")}
 
         for el in scanned_elements:
             match = None
@@ -74,12 +72,6 @@ class MappingStore:
                 match = lookup_auto_id[el.automation_id]
             elif (el.name, el.control_type) in lookup_name_type:
                 match = lookup_name_type[(el.name, el.control_type)]
-
-            # P0-A: Try stable_id match if no match yet
-            if not match:
-                s_id = el.generate_stable_id()
-                if s_id in lookup_stable_id:
-                    match = lookup_stable_id[s_id]
 
             if match:
                 el.logical_key = match.get("logical_key", "")
