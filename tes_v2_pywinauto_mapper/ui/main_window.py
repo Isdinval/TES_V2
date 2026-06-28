@@ -6,9 +6,10 @@ import win32api
 import win32con
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QPushButton, QCheckBox, QLabel, QProgressBar, QFileDialog,
-                             QMessageBox, QApplication, QLineEdit, QFormLayout)
+                            QMessageBox, QApplication, QLineEdit, QFormLayout, QSplitter)
+
 from PyQt6.QtGui import QPixmap, QImage, QKeySequence, QShortcut, QCursor
-from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QRect
+from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QRect, QSettings
 from PIL import Image
 
 from ui.canvas_view import CanvasView
@@ -38,10 +39,16 @@ class MainWindow(QMainWindow):
     def _setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout(central_widget)
+        outer_layout = QVBoxLayout(central_widget)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Main horizontal splitter: [left area | right panels]
+        self.h_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left side: Toolbar + Canvas
-        left_layout = QVBoxLayout()
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(4, 4, 4, 4)
 
         # Context bar
         context_layout = QHBoxLayout()
@@ -91,20 +98,38 @@ class MainWindow(QMainWindow):
         self.canvas.group_zone_selected.connect(self._on_group_zone_selected)
         left_layout.addWidget(self.canvas)
 
-        main_layout.addLayout(left_layout, stretch=4)
+        self.h_splitter.addWidget(left_widget)
 
-        # Right side: Form + Info
-        right_layout = QVBoxLayout()
+        # Right: vertical splitter with form on top, info panel below
+        self.v_splitter = QSplitter(Qt.Orientation.Vertical)
 
         self.element_form = ElementForm()
         self.element_form.element_updated.connect(self._on_element_updated)
-        right_layout.addWidget(self.element_form)
+        self.element_form.setMinimumHeight(200)
+        self.v_splitter.addWidget(self.element_form)
 
         self.info_panel = ElementInfoPanel()
         self.info_panel.export_requested.connect(self._on_export_requested)
-        right_layout.addWidget(self.info_panel)
+        self.info_panel.setMinimumHeight(80)
+        self.v_splitter.addWidget(self.info_panel)
 
-        main_layout.addLayout(right_layout, stretch=1)
+        self.v_splitter.setSizes([400, 300])
+        self.v_splitter.setCollapsible(0, False)
+        self.v_splitter.setCollapsible(1, True)
+
+        self.h_splitter.addWidget(self.v_splitter)
+
+        # Initial proportions: canvas gets 75%, right panels get 25%
+        self.h_splitter.setSizes([1050, 350])
+        self.h_splitter.setCollapsible(0, False)
+        self.h_splitter.setCollapsible(1, False)
+
+        outer_layout.addWidget(self.h_splitter)
+        settings = QSettings("TES_V2", "UIA_Mapper")
+        if settings.value("h_splitter"):
+            self.h_splitter.restoreState(settings.value("h_splitter"))
+        if settings.value("v_splitter"):
+            self.v_splitter.restoreState(settings.value("v_splitter"))
 
         self.selection_timer = QTimer()
         esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
@@ -334,3 +359,9 @@ class MainWindow(QMainWindow):
 
         if not silent:
             QMessageBox.information(self, "Export", f"Mapping saved to {file_path}")
+
+    def closeEvent(self, event):
+        settings = QSettings("TES_V2", "UIA_Mapper")
+        settings.setValue("h_splitter", self.h_splitter.saveState())
+        settings.setValue("v_splitter", self.v_splitter.saveState())
+        super().closeEvent(event)
