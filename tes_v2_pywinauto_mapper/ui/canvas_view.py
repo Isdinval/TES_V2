@@ -6,6 +6,8 @@ from core.element import UIElement
 
 class CanvasView(QScrollArea):
     element_hovered = pyqtSignal(object)
+    elements_deleted = pyqtSignal(list)
+    mouse_position_changed = pyqtSignal(int, int, float, float)
     element_selected = pyqtSignal(object)
     group_zone_selected = pyqtSignal(QRect)
 
@@ -20,6 +22,9 @@ class CanvasView(QScrollArea):
         self.elements: List[UIElement] = []
         self.window_rect: Optional[tuple] = None
         self.hovered_element: Optional[UIElement] = None
+        # Right-click drag for deletion
+        self._rdrag_start: Optional[QPoint] = None
+        self._rdrag_rect: Optional[QRect] = None
         self.selected_element: Optional[UIElement] = None
 
         # Drag mode for group mapping
@@ -91,6 +96,11 @@ class CanvasView(QScrollArea):
             painter.setPen(QPen(QColor(255, 165, 0), 2, Qt.PenStyle.DashLine))
             painter.drawRect(self._drag_rect)
 
+        if self._rdrag_rect:
+            painter.setPen(QPen(QColor(255, 0, 0), 2, Qt.PenStyle.DashLine))
+            painter.setBrush(QColor(255, 0, 0, 30))   # semi-transparent red fill
+            painter.drawRect(self._rdrag_rect)
+
     def _get_local_rect(self, global_rect: List[int]) -> QRect:
         if not self.window_rect:
             return QRect(global_rect[0], global_rect[1], global_rect[2], global_rect[3])
@@ -99,12 +109,23 @@ class CanvasView(QScrollArea):
         return QRect(lx, ly, global_rect[2], global_rect[3])
 
     def _label_mouse_move_event(self, event: QMouseEvent):
+        pos = event.pos()
+        # Relative to canvas label size
+        rel_x = pos.x() / max(self.label.width(), 1)
+        rel_y = pos.y() / max(self.label.height(), 1)
+        self.mouse_position_changed.emit(pos.x(), pos.y(), round(rel_x, 4), round(rel_y, 4))
+
         if self._drag_mode and self._drag_start:
             self._drag_rect = QRect(self._drag_start, event.pos()).normalized()
             self.label.update()
             return
 
-        pos = event.pos()
+        # Check if right button is currently pressed (use event.buttons())
+        if self._rdrag_start and (event.buttons() & Qt.MouseButton.RightButton):
+            self._rdrag_rect = QRect(self._rdrag_start, event.pos()).normalized()
+            self.label.update()
+            return
+
         found = None
         for el in reversed(self.elements):
             if self._get_local_rect(el.rectangle).contains(pos):
@@ -117,12 +138,12 @@ class CanvasView(QScrollArea):
                 tooltip = f"<b>{found.control_type}</b>: {found.name}<br>"
                 if found.automation_id: tooltip += f"ID: {found.automation_id}<br>"
                 if found.logical_key: tooltip += f"Key: <b>{found.logical_key}</b>"
+                tooltip += "<br><i>Right-click to delete</i>"
                 QToolTip.showText(event.globalPosition().toPoint(), tooltip, self.label)
             else:
                 QToolTip.hideText()
             self.element_hovered.emit(found)
             self.label.update()
-
     def _label_mouse_press_event(self, event: QMouseEvent):
         if self._drag_mode and event.button() == Qt.MouseButton.LeftButton:
             self._drag_start = event.pos()
@@ -133,6 +154,9 @@ class CanvasView(QScrollArea):
             self.selected_element = self.hovered_element
             self.element_selected.emit(self.selected_element)
             self.label.update()
+        elif event.button() == Qt.MouseButton.RightButton:
+            self._rdrag_start = event.pos()
+            self._rdrag_rect = None
 
     def _label_mouse_release_event(self, event: QMouseEvent):
         if self._drag_mode and self._drag_start and event.button() == Qt.MouseButton.LeftButton:
@@ -141,6 +165,44 @@ class CanvasView(QScrollArea):
             self._drag_start = None
             self._drag_rect = None
             self.label.update()
+            return
+
+        if event.button() == Qt.MouseButton.RightButton and self._rdrag_start:
+            was_drag = (self._rdrag_rect is not None
+                        and self._rdrag_rect.width() > 5
+                        and self._rdrag_rect.height() > 5)
+
+            to_delete = []
+            if was_drag:
+                # Delete all elements whose local rect overlaps the drag zone
+                to_delete = [
+                    el for el in self.elements
+                    if self._get_local_rect(el.rectangle).intersects(self._rdrag_rect)
+                ]
+            else:
+                # Single right-click: delete only the element under the cursor
+                pos = self._rdrag_start
+                found_list = [
+                    el for el in reversed(self.elements)
+                    if self._get_local_rect(el.rectangle).contains(pos)
+                ]
+                if found_list:
+                    to_delete = [found_list[0]]
+
+            if to_delete:
+                for el in to_delete:
+                    self.elements.remove(el)
+                # Deselect if selected element was deleted
+                if self.selected_element in to_delete:
+                    self.selected_element = None
+                    self.element_selected.emit(None)
+                if self.hovered_element in to_delete:
+                    self.hovered_element = None
+                self.elements_deleted.emit(to_delete)
+                self.label.update()
+
+            self._rdrag_start = None
+            self._rdrag_rect = None
 
     def add_group_overlay(self, element: UIElement):
         # The visual update happens in paintEvent because we added el to self.elements in main_window
