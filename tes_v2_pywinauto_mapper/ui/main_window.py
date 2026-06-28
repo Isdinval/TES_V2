@@ -78,12 +78,21 @@ class MainWindow(QMainWindow):
         self.progress.setVisible(False)
         self.progress.setRange(0, 0)
         toolbar.addWidget(self.progress)
+        self.coord_label = QLabel("x:0 y:0 | rel:(0.000, 0.000)")
+        self.coord_label.setStyleSheet(
+            "font-family: monospace; font-size: 11px; "
+            "background: #1e1e1e; color: #00ff88; padding: 2px 6px; border-radius: 3px;"
+        )
+        self.coord_label.setMinimumWidth(220)
+        toolbar.addWidget(self.coord_label)
 
         left_layout.addLayout(toolbar)
 
         self.canvas = CanvasView()
         self.canvas.element_selected.connect(self._on_element_selected)
         self.canvas.group_zone_selected.connect(self._on_group_zone_selected)
+        self.canvas.elements_deleted.connect(self._on_elements_deleted)
+        self.canvas.mouse_position_changed.connect(self._on_mouse_position_changed)
         left_layout.addWidget(self.canvas)
 
         main_layout.addLayout(left_layout, stretch=4)
@@ -286,3 +295,11 @@ class MainWindow(QMainWindow):
 
         if not silent:
             QMessageBox.information(self, "Export", f"Mapping saved to {file_path}")
+    def _on_mouse_position_changed(self, cx: int, cy: int, rx: float, ry: float):
+        self.coord_label.setText(f"x:{cx} y:{cy} | rel:({rx:.3f}, {ry:.3f})")
+
+    def _on_elements_deleted(self, deleted: list):
+        """Auto-save after deletion so the mapping file stays in sync."""
+        self._on_export_requested(silent=True)
+        count = len(deleted)
+        self.status_label.setText(f"Deleted {count} element(s). Total: {len(self.canvas.elements)}")
