@@ -12,15 +12,17 @@ class CanvasView(QScrollArea):
     def __init__(self):
         super().__init__()
         self.setWidgetResizable(True)
-        self.container = QWidget()
-        self.label = QLabel(self.container)
-        self.setWidget(self.container)
+        self.label = QLabel()
+        self.setWidget(self.label)
 
         self.screenshot_pixmap: Optional[QPixmap] = None
         self.elements: List[UIElement] = []
         self.window_rect: Optional[tuple] = None
         self.hovered_element: Optional[UIElement] = None
         self.selected_element: Optional[UIElement] = None
+
+        self.scale = 1.0
+        self.offset = QPoint(0, 0)
 
         # Drag mode for group mapping
         self._drag_mode = False
@@ -36,27 +38,49 @@ class CanvasView(QScrollArea):
     def set_screenshot(self, pixmap: QPixmap, window_rect: tuple):
         self.screenshot_pixmap = pixmap
         self.window_rect = window_rect
-        self.label.setPixmap(pixmap)
-        self.label.setFixedSize(pixmap.size())
-        self.update()
+        self.label.update()
 
     def set_elements(self, elements: List[UIElement]):
         self.elements = elements
         self.hovered_element = None
         self.selected_element = None
-        self.update()
+        self.label.update()
 
     def enable_drag_mode(self, enabled: bool):
         self._drag_mode = enabled
         self.label.setCursor(Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor)
 
+    def _update_scaling(self):
+        if not self.screenshot_pixmap:
+            self.scale = 1.0
+            self.offset = QPoint(0, 0)
+            return
+
+        target_w = self.label.width()
+        target_h = self.label.height()
+        pix_w = self.screenshot_pixmap.width()
+        pix_h = self.screenshot_pixmap.height()
+
+        if pix_w > 0 and pix_h > 0:
+            self.scale = min(target_w / pix_w, target_h / pix_h)
+        else:
+            self.scale = 1.0
+
+        scaled_w = int(pix_w * self.scale)
+        scaled_h = int(pix_h * self.scale)
+        self.offset = QPoint((target_w - scaled_w) // 2, (target_h - scaled_h) // 2)
+
     def _label_paint_event(self, event):
+        self._update_scaling()
         painter = QPainter(self.label)
+
         if self.screenshot_pixmap:
-            painter.drawPixmap(0, 0, self.screenshot_pixmap)
+            scaled_w = int(self.screenshot_pixmap.width() * self.scale)
+            scaled_h = int(self.screenshot_pixmap.height() * self.scale)
+            painter.drawPixmap(self.offset.x(), self.offset.y(), scaled_w, scaled_h, self.screenshot_pixmap)
 
         for el in self.elements:
-            rect = self._get_local_rect(el.rectangle)
+            rect = self._get_widget_rect(el.rectangle)
 
             if el == self.selected_element:
                 pen = QPen(QColor(255, 0, 0), 2) # Red for selected
@@ -81,14 +105,31 @@ class CanvasView(QScrollArea):
             painter.setPen(QPen(QColor(255, 165, 0), 2, Qt.PenStyle.DashLine))
             painter.drawRect(self._drag_rect)
 
-    def _get_local_rect(self, global_rect: List[int]) -> QRect:
+    def _get_widget_rect(self, global_rect: List[int]) -> QRect:
         if not self.window_rect:
-            return QRect(global_rect[0], global_rect[1], global_rect[2], global_rect[3])
-        lx = global_rect[0] - self.window_rect[0]
-        ly = global_rect[1] - self.window_rect[1]
-        return QRect(lx, ly, global_rect[2], global_rect[3])
+            lx, ly = global_rect[0], global_rect[1]
+        else:
+            lx = global_rect[0] - self.window_rect[0]
+            ly = global_rect[1] - self.window_rect[1]
+
+        return QRect(
+            int(lx * self.scale) + self.offset.x(),
+            int(ly * self.scale) + self.offset.y(),
+            int(global_rect[2] * self.scale),
+            int(global_rect[3] * self.scale)
+        )
+
+    def _to_pixmap_rect(self, widget_rect: QRect) -> QRect:
+        if self.scale <= 0: return widget_rect
+        return QRect(
+            int((widget_rect.x() - self.offset.x()) / self.scale),
+            int((widget_rect.y() - self.offset.y()) / self.scale),
+            int(widget_rect.width() / self.scale),
+            int(widget_rect.height() / self.scale)
+        )
 
     def _label_mouse_move_event(self, event: QMouseEvent):
+        self._update_scaling()
         if self._drag_mode and self._drag_start:
             self._drag_rect = QRect(self._drag_start, event.pos()).normalized()
             self.label.update()
@@ -97,7 +138,7 @@ class CanvasView(QScrollArea):
         pos = event.pos()
         found = None
         for el in reversed(self.elements):
-            if self._get_local_rect(el.rectangle).contains(pos):
+            if self._get_widget_rect(el.rectangle).contains(pos):
                 found = el
                 break
 
@@ -114,6 +155,7 @@ class CanvasView(QScrollArea):
             self.label.update()
 
     def _label_mouse_press_event(self, event: QMouseEvent):
+        self._update_scaling()
         if self._drag_mode and event.button() == Qt.MouseButton.LeftButton:
             self._drag_start = event.pos()
             self._drag_rect = None
@@ -125,14 +167,15 @@ class CanvasView(QScrollArea):
             self.label.update()
 
     def _label_mouse_release_event(self, event: QMouseEvent):
+        self._update_scaling()
         if self._drag_mode and self._drag_start and event.button() == Qt.MouseButton.LeftButton:
             if self._drag_rect and self._drag_rect.width() > 5 and self._drag_rect.height() > 5:
-                self.group_zone_selected.emit(self._drag_rect)
+                pix_rect = self._to_pixmap_rect(self._drag_rect)
+                self.group_zone_selected.emit(pix_rect)
             self._drag_start = None
             self._drag_rect = None
             self.label.update()
 
     def add_group_overlay(self, element: UIElement):
-        # The visual update happens in paintEvent because we added el to self.elements in main_window
         self.selected_element = element
         self.label.update()
