@@ -84,6 +84,15 @@ class ActionExecutor:
             elif ui_type == "dropdown" or ui_type == "date_picker":
                 self.handle_dropdown(field, value)
                 return
+            elif ui_type == "radio_group":
+                self._handle_radio_group(field, value)
+                return
+            elif ui_type == "checkbox_group":
+                self._handle_checkbox_group(field, value)
+                return
+            elif ui_type == "tab_bar":
+                self._handle_tab_bar(field, value)
+                return
 
         # Action Dispatch
         if action == "click":
@@ -105,6 +114,20 @@ class ActionExecutor:
             self.click(abs_x, abs_y)
         elif action == "scroll":
             self.scroll(field)
+        elif action in ("select_by_label", "check_by_label", "uncheck_by_label", "click_by_label"):
+            if ui_type == "radio_group":
+                self._handle_radio_group(field, value)
+            elif ui_type == "checkbox_group":
+                self._handle_checkbox_group(field, value)
+            elif ui_type == "tab_bar":
+                self._handle_tab_bar(field, value)
+            else:
+                # Fallback to fuzzy choice finding if ui_type is not a group but has choices
+                if field.choices:
+                    choice = self._find_choice_fuzzy(field.choices, str(value))
+                    if choice:
+                        cx, cy = self._get_abs_coords(choice.x, choice.y)
+                        self.click(cx, cy)
         elif action == "drag":
             self.drag(field)
         elif action == "none":
@@ -287,6 +310,50 @@ class ActionExecutor:
         # This requires access to all elements in the screen.
         # For now, log it.
         logger.warning(f"Drag action for {field.logical_key} not fully implemented")
+
+    def _handle_radio_group(self, field: FieldMapping, value: str):
+        if not field.choices:
+            raise ValueError(f"radio_group {field.logical_key} has no choices defined")
+        target = self._find_choice_fuzzy(field.choices, str(value))
+        if not target:
+            available = [c.label for c in field.choices]
+            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
+        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
+        self.click(abs_x, abs_y)
+
+    def _handle_checkbox_group(self, field: FieldMapping, value: str):
+        if not field.choices:
+            raise ValueError(f"checkbox_group {field.logical_key} has no choices defined")
+        target = self._find_choice_fuzzy(field.choices, str(value))
+        if not target:
+            available = [c.label for c in field.choices]
+            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
+        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
+        self.click(abs_x, abs_y)
+
+    def _handle_tab_bar(self, field: FieldMapping, value: str):
+        if not field.choices:
+            raise ValueError(f"tab_bar {field.logical_key} has no choices defined")
+        target = self._find_choice_fuzzy(field.choices, str(value))
+        if not target:
+            available = [c.label for c in field.choices]
+            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
+        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
+        self.click(abs_x, abs_y)
+
+    def _find_choice_fuzzy(self, choices: List[Choice], value: str) -> Optional[Choice]:
+        if not value: return None
+        v = str(value).strip().lower()
+        # Exact match
+        for c in choices:
+            if c.label == value: return c
+        # Case-insensitive
+        for c in choices:
+            if c.label.lower() == v: return c
+        # Starts-with
+        for c in choices:
+            if c.label.lower().startswith(v[:3]): return c
+        return None
 
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:
         for c in choices:

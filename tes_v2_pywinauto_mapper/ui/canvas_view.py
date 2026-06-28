@@ -7,6 +7,7 @@ from core.element import UIElement
 class CanvasView(QScrollArea):
     element_hovered = pyqtSignal(object)
     element_selected = pyqtSignal(object)
+    group_zone_selected = pyqtSignal(QRect)
 
     def __init__(self):
         super().__init__()
@@ -21,10 +22,16 @@ class CanvasView(QScrollArea):
         self.hovered_element: Optional[UIElement] = None
         self.selected_element: Optional[UIElement] = None
 
+        # Drag mode for group mapping
+        self._drag_mode = False
+        self._drag_start = None
+        self._drag_rect = None
+
         self.label.setMouseTracking(True)
         self.label.paintEvent = self._label_paint_event
         self.label.mouseMoveEvent = self._label_mouse_move_event
         self.label.mousePressEvent = self._label_mouse_press_event
+        self.label.mouseReleaseEvent = self._label_mouse_release_event
 
     def set_screenshot(self, pixmap: QPixmap, window_rect: tuple):
         self.screenshot_pixmap = pixmap
@@ -38,6 +45,10 @@ class CanvasView(QScrollArea):
         self.hovered_element = None
         self.selected_element = None
         self.update()
+
+    def enable_drag_mode(self, enabled: bool):
+        self._drag_mode = enabled
+        self.label.setCursor(Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor)
 
     def _label_paint_event(self, event):
         painter = QPainter(self.label)
@@ -53,6 +64,8 @@ class CanvasView(QScrollArea):
                 pen = QPen(QColor(0, 0, 255), 2) # Blue for mapped
             elif el == self.hovered_element:
                 pen = QPen(QColor(255, 255, 0), 2) # Yellow for hover
+            elif el.ui_type in ("radio_group", "checkbox_group", "tab_bar"):
+                pen = QPen(QColor(255, 165, 0), 2) # Orange for groups
             else:
                 pen = QPen(QColor(0, 255, 0), 1) # Green for discovered
 
@@ -64,6 +77,10 @@ class CanvasView(QScrollArea):
                 painter.setPen(QColor(0, 0, 255))
                 painter.drawText(rect.topLeft() + QPoint(2, -2), el.logical_key)
 
+        if self._drag_rect:
+            painter.setPen(QPen(QColor(255, 165, 0), 2, Qt.PenStyle.DashLine))
+            painter.drawRect(self._drag_rect)
+
     def _get_local_rect(self, global_rect: List[int]) -> QRect:
         if not self.window_rect:
             return QRect(global_rect[0], global_rect[1], global_rect[2], global_rect[3])
@@ -72,6 +89,11 @@ class CanvasView(QScrollArea):
         return QRect(lx, ly, global_rect[2], global_rect[3])
 
     def _label_mouse_move_event(self, event: QMouseEvent):
+        if self._drag_mode and self._drag_start:
+            self._drag_rect = QRect(self._drag_start, event.pos()).normalized()
+            self.label.update()
+            return
+
         pos = event.pos()
         found = None
         for el in reversed(self.elements):
@@ -92,7 +114,25 @@ class CanvasView(QScrollArea):
             self.label.update()
 
     def _label_mouse_press_event(self, event: QMouseEvent):
+        if self._drag_mode and event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = event.pos()
+            self._drag_rect = None
+            return
+
         if event.button() == Qt.MouseButton.LeftButton:
             self.selected_element = self.hovered_element
             self.element_selected.emit(self.selected_element)
             self.label.update()
+
+    def _label_mouse_release_event(self, event: QMouseEvent):
+        if self._drag_mode and self._drag_start and event.button() == Qt.MouseButton.LeftButton:
+            if self._drag_rect and self._drag_rect.width() > 5 and self._drag_rect.height() > 5:
+                self.group_zone_selected.emit(self._drag_rect)
+            self._drag_start = None
+            self._drag_rect = None
+            self.label.update()
+
+    def add_group_overlay(self, element: UIElement):
+        # The visual update happens in paintEvent because we added el to self.elements in main_window
+        self.selected_element = element
+        self.label.update()
