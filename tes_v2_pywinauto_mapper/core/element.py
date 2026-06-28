@@ -29,6 +29,7 @@ class UIElement:
     # Reference resolution for relative conversion
     ref_resolution: Optional[List[int]] = None
     choices: List[Dict[str, Any]] = field(default_factory=list)
+    member_rects: List[List[int]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         data = {

@@ -48,24 +48,63 @@ class ChoiceListWidget(QWidget):
         self._layout.addWidget(self.add_btn)
 
     def set_choices(self, choices: list):
-        # Clear existing rows
         for row_tuple in self._rows:
             row_tuple[0].setParent(None)
         self._rows.clear()
         for c in choices:
-            self._add_row(c.get("label", ""), c.get("x", 0.0), c.get("y", 0.0),
-                          c.get("stable_id", ""))
+            self._add_row(
+                c.get("label", ""),
+                c.get("x", 0.0),
+                c.get("y", 0.0),
+                c.get("stable_id", ""),
+                c.get("control_type", ""),
+                c.get("class_name", ""),
+                c.get("automation_id", ""),
+                c.get("rect", None),
+            )
 
-    def _add_row(self, label, x, y, stable_id):
+    def _add_row(self, label, x, y, stable_id, control_type="", class_name="",
+                 automation_id="", rect=None):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 2, 0, 2)
 
+        # Type badge: colored label showing control_type
+        TYPE_COLORS = {
+            "RadioButton": ("#2196F3", "white"),   # blue
+            "CheckBox":    ("#4CAF50", "white"),   # green
+            "TabItem":     ("#9C27B0", "white"),   # purple
+            "Static":      ("#9E9E9E", "white"),   # grey
+            "Text":        ("#9E9E9E", "white"),
+            "Button":      ("#FF9800", "white"),   # orange
+        }
+        bg, fg = TYPE_COLORS.get(control_type, ("#607D8B", "white"))
+        type_badge = QLabel(control_type or "?")
+        type_badge.setFixedWidth(90)
+        type_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        type_badge.setStyleSheet(
+            f"background: {bg}; color: {fg}; font-size: 9px; "
+            f"border-radius: 3px; padding: 1px 3px;"
+        )
+
+        INTERACTIVE_TYPES = {"RadioButton", "CheckBox", "TabItem", "Button"}
+        interactive = control_type in INTERACTIVE_TYPES
+        badge_tooltip = (f"{control_type} — interactive (keep this)"
+                         if interactive
+                         else f"{control_type} — likely a label, consider removing")
+        type_badge.setToolTip(badge_tooltip)
+
         label_edit = QLineEdit(label)
         label_edit.setPlaceholderText("Option label")
 
-        coords_label = QLabel(f"({x:.3f}, {y:.3f})")
-        coords_label.setStyleSheet("color: #888; font-size: 10px;")
+        # Metadata line: show automation_id if present, then coords
+        meta_parts = []
+        if automation_id:
+            meta_parts.append(f"id:{automation_id}")
+        meta_parts.append(f"({x:.3f},{y:.3f})")
+        meta_label = QLabel(" | ".join(meta_parts))
+        meta_label.setStyleSheet("color: #888; font-size: 9px; font-family: monospace;")
+        meta_label.setMinimumWidth(120)
 
         remove_btn = QPushButton("✕")
         remove_btn.setFixedWidth(24)
@@ -73,11 +112,13 @@ class ChoiceListWidget(QWidget):
 
         label_edit.textChanged.connect(self._emit_changes)
 
-        row_layout.addWidget(label_edit)
-        row_layout.addWidget(coords_label)
+        row_layout.addWidget(type_badge)
+        row_layout.addWidget(label_edit, stretch=2)
+        row_layout.addWidget(meta_label, stretch=1)
         row_layout.addWidget(remove_btn)
 
-        self._rows.append((row, label_edit, x, y, stable_id))
+        self._rows.append((row, label_edit, x, y, stable_id, control_type, class_name,
+                           automation_id, rect))
         self._layout.insertWidget(self._layout.count() - 1, row)
 
     def _remove_row(self, row_widget):
@@ -89,10 +130,16 @@ class ChoiceListWidget(QWidget):
         self.choices_changed.emit(self.get_choices())
 
     def get_choices(self) -> list:
-        return [
-            {"label": r[1].text().strip(), "x": r[2], "y": r[3], "stable_id": r[4]}
-            for r in self._rows
-        ]
+        result = []
+        for r in self._rows:
+            row, le, x, y, stable_id, ct, cn, aid, rect = r
+            entry = {"label": le.text().strip(), "x": x, "y": y, "stable_id": stable_id}
+            if ct:    entry["control_type"] = ct
+            if cn:    entry["class_name"] = cn
+            if aid:   entry["automation_id"] = aid
+            if rect:  entry["rect"] = rect
+            result.append(entry)
+        return result
 
 class ElementForm(QWidget):
     element_updated = pyqtSignal(object)
