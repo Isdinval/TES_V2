@@ -78,6 +78,15 @@ class MainWindow(QMainWindow):
         self.group_mode_btn.toggled.connect(self._on_group_mode_toggled)
         toolbar.addWidget(self.group_mode_btn)
 
+        self.draw_mode_btn = QPushButton("✏ Draw Element")
+        self.draw_mode_btn.setCheckable(True)
+        self.draw_mode_btn.setToolTip(
+            "Draw a rectangle on the screenshot to manually create an element\n"
+            "that pywinauto did not detect automatically."
+        )
+        self.draw_mode_btn.toggled.connect(self._on_draw_mode_toggled)
+        toolbar.addWidget(self.draw_mode_btn)
+
         self.status_label = QLabel("Ready")
         toolbar.addWidget(self.status_label)
 
@@ -100,9 +109,20 @@ class MainWindow(QMainWindow):
         self.group_mode_banner.setVisible(False)
         left_layout.addWidget(self.group_mode_banner)
 
+        self.draw_mode_banner = QLabel("✏ DRAW MODE ACTIVE — Drag to define element rectangle | ESC to cancel")
+        self.draw_mode_banner.setStyleSheet("background: #00BCD4; color: white; font-weight: bold; padding: 4px 8px;")
+        self.draw_mode_banner.setVisible(False)
+        left_layout.addWidget(self.draw_mode_banner)
+
         self.canvas = CanvasView()
         self.canvas.element_selected.connect(self._on_element_selected)
         self.canvas.group_zone_selected.connect(self._on_group_zone_selected)
+        self.canvas.element_drawn.connect(self._on_element_drawn)
+        self.canvas.delete_preview_count.connect(
+            lambda n: self.status_label.setText(
+                f"Release to delete {n} element(s)" if n > 0 else "No elements in zone"
+            )
+        )
         self.canvas.elements_deleted.connect(self._on_elements_deleted)
         self.canvas.mouse_position_changed.connect(self._on_mouse_position_changed)
         left_layout.addWidget(self.canvas)
@@ -142,7 +162,7 @@ class MainWindow(QMainWindow):
 
         self.selection_timer = QTimer()
         esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
-        esc_shortcut.activated.connect(self._cancel_group_mode)
+        esc_shortcut.activated.connect(self._cancel_active_mode)
         self.selection_timer.timeout.connect(self._poll_mouse_for_window)
 
     def _start_window_selection(self):
@@ -194,6 +214,10 @@ class MainWindow(QMainWindow):
 
         elements = self.scanner.scan(self.selected_handle, self.show_all_cb.isChecked())
 
+        # Preserve manually-created elements from previous session
+        manual_elements = [el for el in self.canvas.elements if el.control_type == "Manual"]
+        elements.extend(manual_elements)
+
         # Merge with existing mapping if any
         mapping = self.mapping_store.load_mapping(self.app_name_edit.text(), self.screen_name_edit.text())
         if mapping:
@@ -225,12 +249,65 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "Load", "Select a window first to apply mapping.")
 
-    def _cancel_group_mode(self):
+    def _cancel_active_mode(self):
         if self.group_mode_btn.isChecked():
             self.group_mode_btn.setChecked(False)
             self.status_label.setText("Group mode cancelled.")
+        elif self.draw_mode_btn.isChecked():
+            self.draw_mode_btn.setChecked(False)
+            self.status_label.setText("Draw mode cancelled.")
+
+    def _on_draw_mode_toggled(self, enabled: bool):
+        if enabled:
+            self.group_mode_btn.setChecked(False)
+        self.canvas.enable_draw_mode(enabled)
+        self.draw_mode_banner.setVisible(enabled)
+        if not enabled:
+            self.canvas._draw_start = None
+            self.canvas._draw_rect = None
+            self.canvas.label.update()
+        self.draw_mode_btn.setText("✕ Cancel Draw" if enabled else "✏ Draw Element")
+
+    def _on_element_drawn(self, pix_rect: QRect):
+        if not self.canvas.window_rect:
+            return
+
+        wx, wy, ww, wh = self.canvas.window_rect
+        abs_x = pix_rect.x() + wx
+        abs_y = pix_rect.y() + wy
+        abs_w = pix_rect.width()
+        abs_h = pix_rect.height()
+
+        new_el = UIElement(
+            name="",
+            automation_id="",
+            control_type="Manual",
+            class_name="",
+            framework_id="",
+            rectangle=[abs_x, abs_y, abs_w, abs_h],
+            is_enabled=True,
+            is_visible=True,
+            ui_type="button",
+            action="click",
+            logical_key="",
+            supported_patterns=[],
+            execution_hint="pyautogui_fallback",
+        )
+        new_el.ref_resolution = self.ref_resolution
+
+        self.draw_mode_btn.setChecked(False)
+        self.canvas.elements.append(new_el)
+        self.canvas.selected_element = new_el
+        self.canvas.label.update()
+        self.element_form.set_element(new_el)
+        self.info_panel.update_info(new_el)
+        self.status_label.setText(
+            "Manual element created. Set logical_key, ui_type and click 'Update Element'."
+        )
 
     def _on_group_mode_toggled(self, enabled):
+        if enabled:
+            self.draw_mode_btn.setChecked(False)
         self.canvas.enable_drag_mode(enabled)
         self.group_mode_banner.setVisible(enabled)
         if not enabled:
@@ -282,6 +359,9 @@ class MainWindow(QMainWindow):
         elif all(t == "TabItem" for t in types_in_zone):
             proposed_ui_type = "tab_bar"
             proposed_action = "click_by_label"
+        elif all(t in ("ListItem", "MenuItem") for t in types_in_zone):
+            proposed_ui_type = "dropdown_group"
+            proposed_action = "select_by_label"
         else:
             proposed_ui_type = "radio_group"
             proposed_action = "select_by_label"
@@ -347,13 +427,35 @@ class MainWindow(QMainWindow):
         self.element_form.set_element(group_el)
 
         # 4. Visual feedback
-        self.status_label.setText(
-            f"Group '{proposed_ui_type}' created with {len(members)} members. "
-            f"Set logical_key and click 'Update Element'."
-        )
+        if proposed_ui_type == "dropdown_group":
+            self.status_label.setText(
+                "Dropdown options captured. Now set logical_key to match the trigger "
+                "dropdown element and click 'Update Element'."
+            )
+        else:
+            self.status_label.setText(
+                f"Group '{proposed_ui_type}' created with {len(members)} members. "
+                f"Set logical_key and click 'Update Element'."
+            )
 
     def _on_export_requested(self, silent=False):
         if not self.canvas.elements: return
+
+        # Resolve dropdown_group triggers by matching logical_key with a 'dropdown' element
+        dropdowns = {el.logical_key: el for el in self.canvas.elements
+                     if el.ui_type == "dropdown" and el.logical_key}
+
+        for el in self.canvas.elements:
+            if el.ui_type == "dropdown_group" and el.logical_key in dropdowns:
+                trigger_el = dropdowns[el.logical_key]
+                rw, rh = self.ref_resolution
+                tx, ty, tw, th = trigger_el.rectangle
+                el.trigger = {
+                    "x": round(tx / rw, 6),
+                    "y": round(ty / rh, 6),
+                    "w": round(tw / rw, 6),
+                    "h": round(th / rh, 6)
+                }
 
         app_name = self.app_name_edit.text().strip()
         screen_name = self.screen_name_edit.text().strip()
@@ -384,4 +486,3 @@ class MainWindow(QMainWindow):
         settings.setValue("h_splitter", self.h_splitter.saveState())
         settings.setValue("v_splitter", self.v_splitter.saveState())
         super().closeEvent(event)
-

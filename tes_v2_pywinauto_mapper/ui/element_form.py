@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
-                             QComboBox, QTextEdit, QPushButton, QLabel, QGroupBox, QCheckBox)
+                             QComboBox, QPushButton, QGroupBox, QLabel, QTextEdit,
+                             QCheckBox)
 from PyQt6.QtCore import pyqtSignal, Qt
 from core.element import UIElement
 from core.utils import name_to_logical_key
@@ -7,7 +8,9 @@ from core.utils import name_to_logical_key
 UI_TYPES = [
     "button", "text_input", "checkbox", "radio", "dropdown", "label",
     "icon", "tab", "menu_item", "toggle", "date_picker", "table_cell",
-    "scroll_area", "drag_handle", "radio_group", "checkbox_group", "tab_bar", "other"
+    "scroll_area", "drag_handle", "radio_group", "checkbox_group", "tab_bar",
+    "dropdown_group",
+    "other"
 ]
 
 UI_TYPE_ACTIONS = {
@@ -28,6 +31,7 @@ UI_TYPE_ACTIONS = {
     "radio_group": ["select_by_label", "select_by_index"],
     "checkbox_group": ["check_by_label", "uncheck_by_label", "check_by_index"],
     "tab_bar": ["click_by_label", "click_by_index"],
+    "dropdown_group": ["select_by_label", "select_by_index"],
     "other": ["click", "hover", "none"],
 }
 
@@ -60,38 +64,32 @@ class ChoiceListWidget(QWidget):
                 c.get("control_type", ""),
                 c.get("class_name", ""),
                 c.get("automation_id", ""),
-                c.get("rect", None),
+                c.get("rect", None)
             )
 
-    def _add_row(self, label, x, y, stable_id, control_type="", class_name="",
-                 automation_id="", rect=None):
+    def _add_row(self, label, x, y, stable_id, control_type="", class_name="", automation_id="", rect=None):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 2, 0, 2)
 
-        # Type badge: colored label showing control_type
-        TYPE_COLORS = {
-            "RadioButton": ("#2196F3", "white"),   # blue
-            "CheckBox":    ("#4CAF50", "white"),   # green
-            "TabItem":     ("#9C27B0", "white"),   # purple
-            "Static":      ("#9E9E9E", "white"),   # grey
-            "Text":        ("#9E9E9E", "white"),
-            "Button":      ("#FF9800", "white"),   # orange
-        }
-        bg, fg = TYPE_COLORS.get(control_type, ("#607D8B", "white"))
-        type_badge = QLabel(control_type or "?")
-        type_badge.setFixedWidth(90)
+        # Type badge with semantic coloring
+        type_badge = QLabel(control_type[:2].upper() if control_type else "??")
+        type_badge.setFixedSize(20, 20)
         type_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        type_badge.setStyleSheet(
-            f"background: {bg}; color: {fg}; font-size: 9px; "
-            f"border-radius: 3px; padding: 1px 3px;"
-        )
 
-        INTERACTIVE_TYPES = {"RadioButton", "CheckBox", "TabItem", "Button"}
-        interactive = control_type in INTERACTIVE_TYPES
-        badge_tooltip = (f"{control_type} — interactive (keep this)"
-                         if interactive
-                         else f"{control_type} — likely a label, consider removing")
+        # Color code by type
+        colors = {
+            "RadioButton": "#E3F2FD; color: #1565C0", # blue
+            "CheckBox": "#F1F8E9; color: #2E7D32",    # green
+            "TabItem": "#FFF3E0; color: #E65100",     # orange
+            "ListItem": "#F3E5F5; color: #7B1FA2",    # purple
+            "MenuItem": "#F3E5F5; color: #7B1FA2",    # purple
+        }
+        style = colors.get(control_type, "background: #eee; color: #666")
+        type_badge.setStyleSheet(f"background: {style}; font-size: 8px; font-weight: bold; border-radius: 10px;")
+
+        badge_tooltip = f"Type: {control_type or 'Unknown'}"
+        if class_name: badge_tooltip += f"\nClass: {class_name}"
         type_badge.setToolTip(badge_tooltip)
 
         label_edit = QLineEdit(label)
@@ -194,6 +192,18 @@ class ElementForm(QWidget):
         choice_layout.addWidget(self.choice_list)
         self.form_layout.addRow(self.choice_group_widget)
 
+        # Trigger Group Widget (informational for dropdown_group)
+        self.trigger_info_label = QLabel("Not linked to a trigger element yet.")
+        self.trigger_info_label.setStyleSheet("color: #888; font-size: 10px;")
+        self.trigger_group_widget = QGroupBox("Trigger (where to click to open)")
+        trigger_layout = QVBoxLayout(self.trigger_group_widget)
+        trigger_layout.addWidget(self.trigger_info_label)
+        trigger_layout.addWidget(QLabel(
+            "Set logical_key to match the existing dropdown element's logical_key.\n"
+            "The local agent will use that element's coordinates to open the dropdown."
+        ))
+        self.form_layout.addRow(self.trigger_group_widget)
+
         self.layout.addWidget(self.group)
 
         self.save_btn = QPushButton("Update Element")
@@ -222,8 +232,11 @@ class ElementForm(QWidget):
         if label:
             label.setVisible(show_expected)
 
-        show_choices = ui_type in ("radio_group", "checkbox_group", "tab_bar")
+        show_choices = ui_type in ("radio_group", "checkbox_group", "tab_bar", "dropdown_group")
         self.choice_group_widget.setVisible(show_choices)
+
+        show_trigger = ui_type == "dropdown_group"
+        self.trigger_group_widget.setVisible(show_trigger)
 
     def _validate_form(self):
         key = self.logical_key_edit.text().strip()
@@ -275,6 +288,16 @@ class ElementForm(QWidget):
 
         # Set choices
         self.choice_list.set_choices(element.choices or [])
+
+        # Set trigger info
+        if element.ui_type == "dropdown_group":
+            if element.trigger:
+                t = element.trigger
+                self.trigger_info_label.setText(f"Linked: ({t['x']:.3f}, {t['y']:.3f}) {t['w']:.3f}x{t['h']:.3f}")
+                self.trigger_info_label.setStyleSheet("color: #008800; font-weight: bold; font-size: 10px;")
+            else:
+                self.trigger_info_label.setText("Not linked to a trigger element yet.")
+                self.trigger_info_label.setStyleSheet("color: #888; font-size: 10px;")
 
         patterns = getattr(element, 'supported_patterns', [])
         hint = getattr(element, 'execution_hint', 'pyautogui_fallback')
