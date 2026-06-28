@@ -72,6 +72,16 @@ class CanvasView(QScrollArea):
             painter.setPen(pen)
             painter.drawRect(rect)
 
+            # Draw member rects for groups
+            if el.ui_type in ("radio_group", "checkbox_group", "tab_bar"):
+                member_pen = QPen(QColor(255, 165, 0), 1, Qt.PenStyle.DotLine)  # dotted orange
+                painter.setPen(member_pen)
+                for mrect in getattr(el, "member_rects", []):
+                    local_mrect = self._get_local_rect(mrect)
+                    painter.drawRect(local_mrect)
+                # Reset pen for text drawing below
+                painter.setPen(pen)
+
             # Draw logical key if present
             if el.logical_key and not (el == self.hovered_element):
                 painter.setPen(QColor(0, 0, 255))
