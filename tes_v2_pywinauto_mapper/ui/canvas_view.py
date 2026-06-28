@@ -41,6 +41,10 @@ class CanvasView(QScrollArea):
         self._draw_start = None
         self._draw_rect = None
 
+        # Pick mode for choosing coordinates
+        self._pick_mode = False
+        self._pick_callback = None
+
         self.label.setMouseTracking(True)
         self.label.paintEvent = self._label_paint_event
         self.label.mouseMoveEvent = self._label_mouse_move_event
@@ -72,6 +76,18 @@ class CanvasView(QScrollArea):
             self._draw_rect = None
             self.label.update()
 
+    def set_pick_mode(self, enabled: bool, callback=None):
+        """
+        In pick mode, the next left-click emits a relative coordinate + element.
+        Disables normal element selection while active.
+        Cursor changes to crosshair + target.
+        """
+        self._pick_mode = enabled
+        self._pick_callback = callback if enabled else None
+        if enabled:
+            self.label.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.label.setCursor(Qt.CursorShape.ArrowCursor)
 
     def _update_scaling(self):
         if not self.screenshot_pixmap:
@@ -98,15 +114,14 @@ class CanvasView(QScrollArea):
         painter = QPainter(self.label)
 
         if self.screenshot_pixmap:
-            scaled_w = int(self.screenshot_pixmap.width() * self.scale)
-            scaled_h = int(self.screenshot_pixmap.height() * self.scale)
-            painter.drawPixmap(self.offset.x(), self.offset.y(), scaled_w, scaled_h, self.screenshot_pixmap)
+            painter.drawPixmap(self.offset, self.screenshot_pixmap.scaled(
+                self.label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
         for el in self.elements:
             rect = self._get_widget_rect(el.rectangle)
 
             if el == self.selected_element:
-                pen = QPen(QColor(255, 0, 0), 2) # Red for selected
+                pen = QPen(QColor(255, 0, 0), 3) # Red for selected
             elif el.control_type == "Manual" and not el.logical_key:
                 pen = QPen(QColor(0, 200, 200), 2, Qt.PenStyle.DashDotLine)  # teal dashed
             elif el.control_type == "Manual" and el.logical_key:
@@ -264,6 +279,31 @@ class CanvasView(QScrollArea):
             
     def _label_mouse_press_event(self, event: QMouseEvent):
         self._update_scaling()
+
+        if self._pick_mode and event.button() == Qt.MouseButton.LeftButton:
+            pos = event.pos()
+            rel_x = round((pos.x() - self.offset.x()) / max(
+                self.screenshot_pixmap.width() * self.scale, 1), 6)
+            rel_y = round((pos.y() - self.offset.y()) / max(
+                self.screenshot_pixmap.height() * self.scale, 1), 6)
+            rel_x = max(0.0, min(1.0, rel_x))
+            rel_y = max(0.0, min(1.0, rel_y))
+
+            # Find element under cursor
+            found = next(
+                (el for el in reversed(self.elements)
+                 if self._get_widget_rect(el.rectangle).contains(pos)),
+                None
+            )
+
+            self._pick_mode = False
+            self.label.setCursor(Qt.CursorShape.ArrowCursor)
+
+            if self._pick_callback:
+                self._pick_callback(rel_x, rel_y, found)
+                self._pick_callback = None
+            return   # don't trigger normal element selection
+
         # Draw mode - left button (check BEFORE group mode check)
         if self._draw_mode and event.button() == Qt.MouseButton.LeftButton:
             self._draw_start = event.pos()
