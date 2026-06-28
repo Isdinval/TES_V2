@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QFormLayout, QLineEdit,
-                             QPushButton, QGroupBox, QTextEdit)
+                             QPushButton, QGroupBox, QTextEdit, QLabel)
 from PyQt6.QtCore import pyqtSignal
 from core.element import UIElement
 
@@ -9,6 +9,11 @@ class ElementInfoPanel(QWidget):
     def __init__(self):
         super().__init__()
         self.layout = QVBoxLayout(self)
+
+        self.warning_label = QLabel("⚠ Manually created element — no UIA data")
+        self.warning_label.setStyleSheet("background: #FFF3E0; color: #E65100; font-weight: bold; padding: 4px; border: 1px solid #FFE0B2; border-radius: 3px;")
+        self.warning_label.setVisible(False)
+        self.layout.addWidget(self.warning_label)
 
         self.group = QGroupBox("Technical Details")
         self.form_layout = QFormLayout(self.group)
@@ -48,6 +53,9 @@ class ElementInfoPanel(QWidget):
             self.clear_info()
             return
 
+        is_manual = element.control_type == "Manual"
+        self.warning_label.setVisible(is_manual)
+
         self.auto_id_edit.setText(element.automation_id)
         self.name_edit.setText(element.name)
         self.type_edit.setText(element.control_type)
@@ -57,6 +65,7 @@ class ElementInfoPanel(QWidget):
         self.patterns_edit.setText(", ".join(element.supported_patterns))
 
     def clear_info(self):
+        self.warning_label.setVisible(False)
         self.auto_id_edit.clear()
         self.name_edit.clear()
         self.type_edit.clear()

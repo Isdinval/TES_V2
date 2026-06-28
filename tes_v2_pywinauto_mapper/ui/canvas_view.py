@@ -10,6 +10,8 @@ class CanvasView(QScrollArea):
     mouse_position_changed = pyqtSignal(int, int, float, float)
     element_selected = pyqtSignal(object)
     group_zone_selected = pyqtSignal(QRect)
+    element_drawn = pyqtSignal(QRect)
+    delete_preview_count = pyqtSignal(int)
 
     def __init__(self):
         super().__init__()
@@ -34,6 +36,11 @@ class CanvasView(QScrollArea):
         self._drag_start = None
         self._drag_rect = None
 
+        # Draw mode for manual element creation
+        self._draw_mode = False
+        self._draw_start = None
+        self._draw_rect = None
+
         self.label.setMouseTracking(True)
         self.label.paintEvent = self._label_paint_event
         self.label.mouseMoveEvent = self._label_mouse_move_event
@@ -54,6 +61,17 @@ class CanvasView(QScrollArea):
     def enable_drag_mode(self, enabled: bool):
         self._drag_mode = enabled
         self.label.setCursor(Qt.CursorShape.CrossCursor if enabled else Qt.CursorShape.ArrowCursor)
+
+    def enable_draw_mode(self, enabled: bool):
+        self._draw_mode = enabled
+        if enabled:
+            self.label.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.label.setCursor(Qt.CursorShape.ArrowCursor)
+            self._draw_start = None
+            self._draw_rect = None
+            self.label.update()
+
 
     def _update_scaling(self):
         if not self.screenshot_pixmap:
@@ -89,11 +107,15 @@ class CanvasView(QScrollArea):
 
             if el == self.selected_element:
                 pen = QPen(QColor(255, 0, 0), 2) # Red for selected
+            elif el.control_type == "Manual" and not el.logical_key:
+                pen = QPen(QColor(0, 200, 200), 2, Qt.PenStyle.DashDotLine)  # teal dashed
+            elif el.control_type == "Manual" and el.logical_key:
+                pen = QPen(QColor(0, 150, 150), 2)   # dark teal when mapped
             elif el.logical_key:
                 pen = QPen(QColor(0, 0, 255), 2) # Blue for mapped
             elif el == self.hovered_element:
                 pen = QPen(QColor(255, 255, 0), 2) # Yellow for hover
-            elif el.ui_type in ("radio_group", "checkbox_group", "tab_bar"):
+            elif el.ui_type in ("radio_group", "checkbox_group", "tab_bar", "dropdown_group"):
                 pen = QPen(QColor(255, 165, 0), 2) # Orange for groups
             else:
                 pen = QPen(QColor(0, 255, 0), 1) # Green for discovered
@@ -102,7 +124,7 @@ class CanvasView(QScrollArea):
             painter.drawRect(rect)
 
             # Draw member rects for groups
-            if el.ui_type in ("radio_group", "checkbox_group", "tab_bar"):
+            if el.ui_type in ("radio_group", "checkbox_group", "tab_bar", "dropdown_group"):
                 member_pen = QPen(QColor(255, 165, 0), 1, Qt.PenStyle.DotLine)  # dotted orange
                 painter.setPen(member_pen)
                 for mrect in getattr(el, "member_rects", []):
@@ -116,9 +138,38 @@ class CanvasView(QScrollArea):
                 painter.setPen(QColor(0, 0, 255))
                 painter.drawText(rect.topLeft() + QPoint(2, -2), el.logical_key)
 
+
+        # Draw mode rectangle (teal, solid)
+        if self._draw_rect:
+            draw_pen = QPen(QColor(0, 200, 200), 2, Qt.PenStyle.SolidLine)
+            painter.setPen(draw_pen)
+            painter.setBrush(QColor(0, 200, 200, 40))
+            painter.drawRect(self._draw_rect)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+
         if self._drag_rect:
             painter.setPen(QPen(QColor(255, 165, 0), 2, Qt.PenStyle.DashLine))
             painter.drawRect(self._drag_rect)
+
+        if self._rdrag_rect:
+            # Highlight elements that will be deleted
+            delete_highlight_pen = QPen(QColor(220, 0, 0), 2)
+            delete_highlight_brush = QColor(220, 0, 0, 60)
+            for el in self.elements:
+                el_rect = self._get_widget_rect(el.rectangle)
+                if el_rect.intersects(self._rdrag_rect):
+                    painter.setPen(delete_highlight_pen)
+                    painter.setBrush(delete_highlight_brush)
+                    painter.drawRect(el_rect)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+
+            # Red dashed border
+            painter.setPen(QPen(QColor(220, 0, 0), 2, Qt.PenStyle.DashLine))
+            # Semi-transparent red fill (alpha=50)
+            painter.setBrush(QColor(220, 0, 0, 50))
+            painter.drawRect(self._rdrag_rect)
+            # Reset brush
+            painter.setBrush(Qt.BrushStyle.NoBrush)
 
     def _get_widget_rect(self, global_rect: List[int]) -> QRect:
         if not self.window_rect:
@@ -166,6 +217,11 @@ class CanvasView(QScrollArea):
         rel_y = pos.y() / max(self.label.height(), 1)
         self.mouse_position_changed.emit(pos.x(), pos.y(), round(rel_x, 4), round(rel_y, 4))
 
+        if self._draw_mode and self._draw_start:
+            self._draw_rect = QRect(self._draw_start, event.pos()).normalized()
+            self.label.update()
+            return
+
         if self._drag_mode and self._drag_start:
             self._drag_rect = QRect(self._drag_start, event.pos()).normalized()
             self.label.update()
@@ -174,6 +230,12 @@ class CanvasView(QScrollArea):
         # Right drag deletion rectangle
         if self._rdrag_start and (event.buttons() & Qt.MouseButton.RightButton):
             self._rdrag_rect = QRect(self._rdrag_start, event.pos()).normalized()
+            # Count elements that would be deleted
+            count = sum(
+                1 for el in self.elements
+                if self._get_widget_rect(el.rectangle).intersects(self._rdrag_rect)
+            )
+            self.delete_preview_count.emit(count)
             self.label.update()
             return
 
@@ -202,6 +264,12 @@ class CanvasView(QScrollArea):
             
     def _label_mouse_press_event(self, event: QMouseEvent):
         self._update_scaling()
+        # Draw mode - left button (check BEFORE group mode check)
+        if self._draw_mode and event.button() == Qt.MouseButton.LeftButton:
+            self._draw_start = event.pos()
+            self._draw_rect = None
+            return
+
         if self._drag_mode and event.button() == Qt.MouseButton.LeftButton:
             self._drag_start = event.pos()
             self._drag_rect = None
@@ -217,6 +285,15 @@ class CanvasView(QScrollArea):
 
     def _label_mouse_release_event(self, event: QMouseEvent):
         self._update_scaling()
+        if self._draw_mode and self._draw_start and event.button() == Qt.MouseButton.LeftButton:
+            if self._draw_rect and self._draw_rect.width() > 5 and self._draw_rect.height() > 5:
+                pix_rect = self._to_pixmap_rect(self._draw_rect)
+                self.element_drawn.emit(pix_rect)
+            self._draw_start = None
+            self._draw_rect = None
+            self.label.update()
+            return
+
         if self._drag_mode and self._drag_start and event.button() == Qt.MouseButton.LeftButton:
             if self._drag_rect and self._drag_rect.width() > 5 and self._drag_rect.height() > 5:
                 pix_rect = self._to_pixmap_rect(self._drag_rect)

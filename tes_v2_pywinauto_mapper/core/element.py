@@ -30,6 +30,7 @@ class UIElement:
     ref_resolution: Optional[List[int]] = None
     choices: List[Dict[str, Any]] = field(default_factory=list)
     member_rects: List[List[int]] = field(default_factory=list)
+    trigger: Optional[Dict[str, float]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -56,6 +57,9 @@ class UIElement:
 
         if self.choices:
             data["choices"] = self.choices
+
+        if self.trigger:
+            data["trigger"] = self.trigger
 
         # Convert rectangle [x, y, w, h] to bbox_relative [x, y, w, h] as floats (0..1)
         if self.ref_resolution and len(self.ref_resolution) == 2:
@@ -93,5 +97,6 @@ class UIElement:
             path=data.get("path", ""),
             expected_value=data.get("expected_value", ""),
             value_pattern=data.get("value_pattern", False),
-            choices=data.get("choices", [])
+            choices=data.get("choices", []),
+            trigger=data.get("trigger", None)
         )
