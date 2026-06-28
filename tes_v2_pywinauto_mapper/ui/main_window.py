@@ -6,8 +6,9 @@ import win32api
 import win32con
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
                              QPushButton, QCheckBox, QLabel, QProgressBar, QFileDialog,
-                             QMessageBox, QApplication, QLineEdit, QFormLayout, QSplitter)
-from PyQt6.QtGui import QPixmap, QImage, QCursor
+                            QMessageBox, QApplication, QLineEdit, QFormLayout, QSplitter)
+
+from PyQt6.QtGui import QPixmap, QImage, QKeySequence, QShortcut, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSlot, QRect, QSettings
 from PIL import Image
 
@@ -87,6 +88,11 @@ class MainWindow(QMainWindow):
 
         left_layout.addLayout(toolbar)
 
+        self.group_mode_banner = QLabel("🔲 GROUP MODE ACTIVE — Drag to select members | ESC to cancel")
+        self.group_mode_banner.setStyleSheet("background: #FF9800; color: white; font-weight: bold; padding: 4px 8px; border-radius: 3px;")
+        self.group_mode_banner.setVisible(False)
+        left_layout.addWidget(self.group_mode_banner)
+
         self.canvas = CanvasView()
         self.canvas.element_selected.connect(self._on_element_selected)
         self.canvas.group_zone_selected.connect(self._on_group_zone_selected)
@@ -126,6 +132,8 @@ class MainWindow(QMainWindow):
             self.v_splitter.restoreState(settings.value("v_splitter"))
 
         self.selection_timer = QTimer()
+        esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        esc_shortcut.activated.connect(self._cancel_group_mode)
         self.selection_timer.timeout.connect(self._poll_mouse_for_window)
 
     def _start_window_selection(self):
@@ -208,8 +216,20 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.warning(self, "Load", "Select a window first to apply mapping.")
 
+    def _cancel_group_mode(self):
+        if self.group_mode_btn.isChecked():
+            self.group_mode_btn.setChecked(False)
+            self.status_label.setText("Group mode cancelled.")
+
     def _on_group_mode_toggled(self, enabled):
         self.canvas.enable_drag_mode(enabled)
+        self.group_mode_banner.setVisible(enabled)
+        if not enabled:
+            # Explicitly clear any in-progress drag
+            self.canvas._drag_start = None
+            self.canvas._drag_rect = None
+            self.canvas.label.update()
+        self.group_mode_btn.setText("✕ Cancel Group" if enabled else "Map as Group")
 
     def _on_group_zone_selected(self, zone_rect: QRect):
         # zone_rect is in canvas local coordinates (relative to window_rect[0,1])
@@ -238,6 +258,10 @@ class MainWindow(QMainWindow):
             self.group_mode_btn.setChecked(False)
             return
 
+        # Sort members: interactive first, then top-to-bottom
+        INTERACTIVE_TYPES = {"RadioButton", "CheckBox", "TabItem", "Button"}
+        members.sort(key=lambda m: (0 if m.control_type in INTERACTIVE_TYPES else 1, m.rectangle[1]))
+
         # Detect predominant type
         types_in_zone = [m.control_type for m in members]
         if all(t == "RadioButton" for t in types_in_zone):
@@ -265,10 +289,19 @@ class MainWindow(QMainWindow):
             cx = m.rectangle[0] + m.rectangle[2] / 2
             cy = m.rectangle[1] + m.rectangle[3] / 2
             choices.append({
-                "label": m.name or m.logical_key or f"option_{len(choices)}",
-                "x": round(cx / rw, 6),
-                "y": round(cy / rh, 6),
-                "stable_id": m.automation_id or f"{m.name}_{m.control_type}"
+                "label":        m.name or m.logical_key or f"option_{len(choices)}",
+                "x":            round(cx / rw, 6),
+                "y":            round(cy / rh, 6),
+                "stable_id":    m.automation_id or f"{m.name}_{m.control_type}",
+                "control_type": m.control_type,
+                "class_name":   getattr(m, "class_name", ""),
+                "automation_id": getattr(m, "automation_id", ""),
+                "rect":         [
+                    round(m.rectangle[0] / rw, 6),
+                    round(m.rectangle[1] / rh, 6),
+                    round(m.rectangle[2] / rw, 6),
+                    round(m.rectangle[3] / rh, 6),
+                ]
             })
 
         group_el = UIElement(
@@ -284,15 +317,31 @@ class MainWindow(QMainWindow):
             action=proposed_action,
             logical_key="",
             choices=choices,
+            member_rects=[m.rectangle for m in members],
             supported_patterns=[],
             execution_hint="pyautogui_fallback",
         )
         group_el.ref_resolution = self.ref_resolution
 
+        # 1. Exit group mode FIRST
+        self.group_mode_btn.setChecked(False)
+        self.canvas.enable_drag_mode(False)
+        self.canvas.setCursor(Qt.CursorShape.ArrowCursor)
+
+        # 2. Reset any in-progress drag state
+        self.canvas._drag_start = None
+        self.canvas._drag_rect = None
+
+        # 3. Add the group element and update UI
         self.canvas.elements.append(group_el)
         self.canvas.add_group_overlay(group_el)
         self.element_form.set_element(group_el)
-        self.group_mode_btn.setChecked(False)
+
+        # 4. Visual feedback
+        self.status_label.setText(
+            f"Group '{proposed_ui_type}' created with {len(members)} members. "
+            f"Set logical_key and click 'Update Element'."
+        )
 
     def _on_export_requested(self, silent=False):
         if not self.canvas.elements: return
