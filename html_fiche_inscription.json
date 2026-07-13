@@ -1,0 +1,148 @@
+{
+  "meta": {
+    "app": "html",
+    "screen": "fiche_inscription",
+    "created_at": "2026-06-22T19:25:40",
+    "resolution": [
+      1920,
+      1080
+    ]
+  },
+  "elements": [
+    {
+      "stable_id": "186f0b40d74d",
+      "logical_key": "MOVE_TO_SUIVANT",
+      "ui_type": "button",
+      "action": "click",
+      "path": "",
+      "bbox_relative": {
+        "x": 0.326,
+        "y": 0.6789,
+        "w": 0.3518,
+        "h": 0.072
+      },
+      "source": "human",
+      "click_target": {
+        "x": 0.5019,
+        "y": 0.7149
+      },
+      "navigation_config": {
+        "target_screen": "fiche_informations_complémentaires"
+      }
+    },
+    {
+      "stable_id": "101cba8b4489",
+      "logical_key": "NOM",
+      "ui_type": "text_input",
+      "action": "click_then_type",
+      "path": "",
+      "bbox_relative": {
+        "x": 0.3267,
+        "y": 0.3486,
+        "w": 0.3492,
+        "h": 0.056
+      },
+      "source": "human",
+      "click_target": {
+        "x": 0.5013,
+        "y": 0.3766
+      }
+    },
+    {
+      "stable_id": "d09277c31562",
+      "logical_key": "EMAIL",
+      "ui_type": "text_input",
+      "action": "click_then_type",
+      "path": "",
+      "bbox_relative": {
+        "x": 0.3228,
+        "y": 0.4617,
+        "w": 0.3518,
+        "h": 0.0549
+      },
+      "source": "human",
+      "click_target": {
+        "x": 0.4987,
+        "y": 0.4891
+      }
+    },
+    {
+      "stable_id": "6c5a3984ae88",
+      "logical_key": "TAILLE_TSHIRT",
+      "ui_type": "radio",
+      "action": "click",
+      "path": "",
+      "bbox_relative": {
+        "x": 0.3183,
+        "y": 0.5714,
+        "w": 0.1968,
+        "h": 0.0331
+      },
+      "source": "human",
+      "click_target": {
+        "x": 0.3478,
+        "y": 0.5879
+      },
+      "expected_value": "XL",
+      "choices": [
+        {
+          "label": "XS",
+          "x": 0.3296,
+          "y": 0.5913,
+          "scroll_steps": 0
+        },
+        {
+          "label": "S",
+          "x": 0.3724,
+          "y": 0.5924,
+          "scroll_steps": 0
+        },
+        {
+          "label": "M",
+          "x": 0.4102,
+          "y": 0.5901,
+          "scroll_steps": 0
+        },
+        {
+          "label": "L",
+          "x": 0.4512,
+          "y": 0.589,
+          "scroll_steps": 0
+        },
+        {
+          "label": "XL",
+          "x": 0.4858,
+          "y": 0.5924,
+          "scroll_steps": 0
+        }
+      ]
+    },
+    {
+      "stable_id": "6bfc36602122",
+      "logical_key": "RECEVOIR_NEWSLETTER",
+      "ui_type": "checkbox",
+      "action": "check",
+      "path": "",
+      "bbox_relative": {
+        "x": 0.3209,
+        "y": 0.6217,
+        "w": 0.1601,
+        "h": 0.04
+      },
+      "source": "human",
+      "click_target": {
+        "x": 0.3449,
+        "y": 0.6417
+      },
+      "expected_value": "Je souhaite recevoir la newsletter",
+      "choices": [
+        {
+          "label": "Je souhaite recevoir la newsletter",
+          "x": 0.3321,
+          "y": 0.645,
+          "scroll_steps": 0
+        }
+      ]
+    }
+  ]
+}

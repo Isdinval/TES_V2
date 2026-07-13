@@ -1,0 +1,691 @@
+{
+  "meta": {
+    "app": "MyApp",
+    "screen": "MainScreen",
+    "backend": "uia",
+    "window_title": "Demo UX Interactive - 2 Pages - Google Chrome",
+    "created_at": "2026-07-13T11:24:02",
+    "resolution": [
+      1920,
+      1080
+    ]
+  },
+  "elements": [
+    {
+      "logical_key": "inscription_page_1",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "📋 Inscription - Page 1",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "text-3xl font-bold text-center mb-8 text-indigo-700",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        258,
+        676,
+        46
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "📋 Inscription - Page 1",
+      "supported_patterns": [],
+      "execution_hint": "pyautogui_fallback",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='📋 Inscription - Page 1'][@class='text-3xl font-bold text-center mb-8 text-indigo-700']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "📋 Inscription - Page 1_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.238889,
+        "w": 0.352083,
+        "h": 0.042593
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "nom_complet",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "Nom complet",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        344,
+        110,
+        24
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Nom complet",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='Nom complet']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "Nom complet_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.318519,
+        "w": 0.057292,
+        "h": 0.022222
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "nom",
+      "ui_type": "text_input",
+      "action": "click_then_type",
+      "name": "￼",
+      "automation_id": "nom",
+      "control_type": "Unknown",
+      "class_name": "w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        373,
+        676,
+        63
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "",
+      "supported_patterns": [
+        "Value",
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Edit[@auto_id='nom'][@title='Jean Dupont'][@class='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500']",
+      "expected_value": "",
+      "value_pattern": true,
+      "stable_id": "nom",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.34537,
+        "w": 0.352083,
+        "h": 0.058333
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "email",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "Email",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        466,
+        44,
+        24
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Email",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='Email']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "Email_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.431481,
+        "w": 0.022917,
+        "h": 0.022222
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "email",
+      "ui_type": "text_input",
+      "action": "click_then_type",
+      "name": "￼",
+      "automation_id": "email",
+      "control_type": "Unknown",
+      "class_name": "w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        495,
+        676,
+        63
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "",
+      "supported_patterns": [
+        "Value",
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Edit[@auto_id='email'][@title='jean.dupont@email.com'][@class='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500']",
+      "expected_value": "",
+      "value_pattern": true,
+      "stable_id": "email",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.458333,
+        "w": 0.352083,
+        "h": 0.058333
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "taille_du_t_shirt",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "Taille du t-shirt",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        588,
+        120,
+        24
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Taille du t-shirt",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='Taille du t-shirt']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "Taille du t-shirt_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.544444,
+        "w": 0.0625,
+        "h": 0.022222
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "xs",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "XS",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-4 h-4",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        627,
+        21,
+        21
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "XS",
+      "supported_patterns": [
+        "Invoke",
+        "SelectionItem",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='XS']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "XS_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.580556,
+        "w": 0.010937,
+        "h": 0.019444
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "xs",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "XS",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        652,
+        623,
+        23,
+        28
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "XS",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='XS']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "XS_Unknown",
+      "bbox_relative": {
+        "x": 0.339583,
+        "y": 0.576852,
+        "w": 0.011979,
+        "h": 0.025926
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "s",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "S",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-4 h-4",
+      "framework_id": "",
+      "rectangle": [
+        704,
+        627,
+        21,
+        21
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "S",
+      "supported_patterns": [
+        "Invoke",
+        "SelectionItem",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='S']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "S_Unknown",
+      "bbox_relative": {
+        "x": 0.366667,
+        "y": 0.580556,
+        "w": 0.010937,
+        "h": 0.019444
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "s",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "S",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        734,
+        623,
+        12,
+        28
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "S",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='S']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "S_Unknown",
+      "bbox_relative": {
+        "x": 0.382292,
+        "y": 0.576852,
+        "w": 0.00625,
+        "h": 0.025926
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "m",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "M",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-4 h-4",
+      "framework_id": "",
+      "rectangle": [
+        775,
+        627,
+        21,
+        21
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "M",
+      "supported_patterns": [
+        "Invoke",
+        "SelectionItem",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='M']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "M_Unknown",
+      "bbox_relative": {
+        "x": 0.403646,
+        "y": 0.580556,
+        "w": 0.010937,
+        "h": 0.019444
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "m",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "M",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        805,
+        623,
+        19,
+        28
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "M",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='M']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "M_Unknown",
+      "bbox_relative": {
+        "x": 0.419271,
+        "y": 0.576852,
+        "w": 0.009896,
+        "h": 0.025926
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "l",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "L",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-4 h-4",
+      "framework_id": "",
+      "rectangle": [
+        853,
+        627,
+        21,
+        21
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "L",
+      "supported_patterns": [
+        "Invoke",
+        "SelectionItem",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='L']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "L_Unknown",
+      "bbox_relative": {
+        "x": 0.444271,
+        "y": 0.580556,
+        "w": 0.010937,
+        "h": 0.019444
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "l",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "L",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        883,
+        623,
+        10,
+        28
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "L",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='L']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "L_Unknown",
+      "bbox_relative": {
+        "x": 0.459896,
+        "y": 0.576852,
+        "w": 0.005208,
+        "h": 0.025926
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "xl",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "XL",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-4 h-4",
+      "framework_id": "",
+      "rectangle": [
+        922,
+        627,
+        21,
+        21
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "XL",
+      "supported_patterns": [
+        "Invoke",
+        "SelectionItem",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='XL']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "XL_Unknown",
+      "bbox_relative": {
+        "x": 0.480208,
+        "y": 0.580556,
+        "w": 0.010937,
+        "h": 0.019444
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "xl",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "XL",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        952,
+        623,
+        23,
+        28
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "XL",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='XL']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "XL_Unknown",
+      "bbox_relative": {
+        "x": 0.495833,
+        "y": 0.576852,
+        "w": 0.011979,
+        "h": 0.025926
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "newsletter",
+      "ui_type": "checkbox",
+      "action": "check",
+      "name": "Je souhaite recevoir la newsletter",
+      "automation_id": "newsletter",
+      "control_type": "Unknown",
+      "class_name": "w-5 h-5",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        682,
+        26,
+        26
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Je souhaite recevoir la newsletter",
+      "supported_patterns": [
+        "Toggle",
+        "Value"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > CheckBox[@auto_id='newsletter'][@title='Je souhaite recevoir la newsletter'][@class='w-5 h-5']",
+      "expected_value": "",
+      "value_pattern": true,
+      "stable_id": "newsletter",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.631481,
+        "w": 0.013542,
+        "h": 0.024074
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "je_souhaite_recevoir_la_newsletter",
+      "ui_type": "Unknown",
+      "action": "",
+      "name": "Je souhaite recevoir la newsletter",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "",
+      "framework_id": "",
+      "rectangle": [
+        662,
+        683,
+        255,
+        24
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Je souhaite recevoir la newsletter",
+      "supported_patterns": [
+        "Text"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Text[@title='Je souhaite recevoir la newsletter']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "Je souhaite recevoir la newsletter_Unknown",
+      "bbox_relative": {
+        "x": 0.344792,
+        "y": 0.632407,
+        "w": 0.132812,
+        "h": 0.022222
+      },
+      "source": "human"
+    },
+    {
+      "logical_key": "suivant",
+      "ui_type": "button",
+      "action": "click",
+      "name": "Suivant →",
+      "automation_id": "",
+      "control_type": "Unknown",
+      "class_name": "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition",
+      "framework_id": "",
+      "rectangle": [
+        622,
+        737,
+        676,
+        71
+      ],
+      "is_enabled": true,
+      "is_visible": true,
+      "value": "Suivant →",
+      "supported_patterns": [
+        "Invoke"
+      ],
+      "execution_hint": "uia_native",
+      "notes": "",
+      "path": "Document[@auto_id='RootWebArea'][@title='Demo UX Interactive - 2 Pages'] > Button[@title='Suivant →'][@class='w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition']",
+      "expected_value": "",
+      "value_pattern": false,
+      "stable_id": "Suivant →_Unknown",
+      "bbox_relative": {
+        "x": 0.323958,
+        "y": 0.682407,
+        "w": 0.352083,
+        "h": 0.065741
+      },
+      "source": "human"
+    }
+  ]
+}

@@ -1,0 +1,436 @@
+2026-06-22 16:52:42.765 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 16:52:42.793 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['Login', 'Dashboard', 'FicheClient'], Dry Run: True)
+2026-06-22 16:52:42.793 | INFO     | tes_v2_local_agent.core.data_loader:load_excel:15 - Loading Excel data from data/source.xlsx
+2026-06-22 16:52:42.794 | ERROR    | __main__:main:57 - Unexpected error during execution: [Errno 2] No such file or directory: 'data/source.xlsx'
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 63, in <module>
+    main()
+    └ <function main at 0x000002BCF4DC8220>
+
+> File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 48, in main
+    agent.run_scenario(
+    │     └ <function LocalAgent.run_scenario at 0x000002BC98777380>
+    └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x000002BC99110610>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\agents\local_agent.py", line 42, in run_scenario
+    all_data = self.data_loader.load_data(data_file)
+               │    │           │         └ 'data/source.xlsx'
+               │    │           └ <function DataLoader.load_data at 0x000002BC96348360>
+               │    └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x000002BC99110710>
+               └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x000002BC99110610>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 27, in load_data
+    return self.load_excel(file_path)
+           │    │          └ 'data/source.xlsx'
+           │    └ <function DataLoader.load_excel at 0x000002BC98587920>
+           └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x000002BC99110710>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 16, in load_excel
+    df = pd.read_excel(file_path)
+         │  │          └ 'data/source.xlsx'
+         │  └ <function read_excel at 0x000002BC986A3C40>
+         └ <module 'pandas' from 'D:\\ANACONDA\\envs\\OmniParser\\Lib\\site-packages\\pandas\\__init__.py'>
+
+  File "D:\ANACONDA\envs\OmniParser\Lib\site-packages\pandas\io\excel\_base.py", line 495, in read_excel
+    io = ExcelFile(
+         └ <class 'pandas.io.excel._base.ExcelFile'>
+  File "D:\ANACONDA\envs\OmniParser\Lib\site-packages\pandas\io\excel\_base.py", line 1550, in __init__
+    ext = inspect_excel_format(
+          └ <function inspect_excel_format at 0x000002BC986CC540>
+  File "D:\ANACONDA\envs\OmniParser\Lib\site-packages\pandas\io\excel\_base.py", line 1402, in inspect_excel_format
+    with get_handle(
+         └ <function get_handle at 0x000002BC983872E0>
+  File "D:\ANACONDA\envs\OmniParser\Lib\site-packages\pandas\io\common.py", line 882, in get_handle
+    handle = open(handle, ioargs.mode)
+                  │       │      └ 'rb'
+                  │       └ IOArgs(filepath_or_buffer='data/source.xlsx', encoding='utf-8', mode='rb', compression={'method': None}, should_close=False)
+                  └ 'data/source.xlsx'
+
+FileNotFoundError: [Errno 2] No such file or directory: 'data/source.xlsx'
+2026-06-22 16:52:42.833 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 16:56:55.926 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 16:56:55.930 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['drive_fiche_inscription_tshirt'], Dry Run: True)
+2026-06-22 16:56:55.931 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from drive_fiche_inscription_tshirt_data.json
+2026-06-22 16:56:55.931 | ERROR    | __main__:main:57 - Unexpected error during execution: [Errno 2] No such file or directory: 'drive_fiche_inscription_tshirt_data.json'
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 63, in <module>
+    main()
+    └ <function main at 0x00000248DDE1C220>
+
+> File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 48, in main
+    agent.run_scenario(
+    │     └ <function LocalAgent.run_scenario at 0x00000248821E28E0>
+    └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x00000248822382D0>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\agents\local_agent.py", line 42, in run_scenario
+    all_data = self.data_loader.load_data(data_file)
+               │    │           │         └ 'drive_fiche_inscription_tshirt_data.json'
+               │    │           └ <function DataLoader.load_data at 0x00000248816A79C0>
+               │    └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x00000248822383D0>
+               └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x00000248822382D0>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 22, in load_data
+    raw_data = self.load_json(file_path)
+               │    │         └ 'drive_fiche_inscription_tshirt_data.json'
+               │    └ <function DataLoader.load_json at 0x00000248FF068180>
+               └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x00000248822383D0>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 10, in load_json
+    with open(file_path, "r", encoding="utf-8") as f:
+              └ 'drive_fiche_inscription_tshirt_data.json'
+
+FileNotFoundError: [Errno 2] No such file or directory: 'drive_fiche_inscription_tshirt_data.json'
+2026-06-22 16:56:55.935 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 16:58:24.880 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 16:58:24.882 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['drive_fiche_inscription_tshirt'], Dry Run: True)
+2026-06-22 16:58:24.882 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/drive_fiche_inscription_tshirt_data.json
+2026-06-22 16:58:24.882 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 16:58:24.882 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: drive_fiche_inscription_tshirt
+2026-06-22 16:58:24.882 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/drive_fiche_inscription_tshirt.json
+2026-06-22 16:58:24.907 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: True)
+2026-06-22 16:58:24.907 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription_tshirt
+2026-06-22 16:58:24.907 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'NOM' not found in record for screen 'fiche_inscription_tshirt'
+2026-06-22 16:58:24.908 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'TAILE_TSHIRT' not found in record for screen 'fiche_inscription_tshirt'
+2026-06-22 16:58:24.908 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'AUTRES_REMARQUES_OU_COMMENTAIRES' not found in record for screen 'fiche_inscription_tshirt'
+2026-06-22 16:58:24.908 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click' on field 'ENVOYER' (Type: button) with value 'None'
+2026-06-22 16:58:24.908 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 16:58:24.909 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_165824.json
+2026-06-22 16:58:24.910 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 17:00:44.215 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 17:00:44.217 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['drive_fiche_inscription_tshirt'], Dry Run: True)
+2026-06-22 17:00:44.217 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/drive_fiche_inscription_tshirt_data.json
+2026-06-22 17:00:44.218 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 17:00:44.218 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: drive_fiche_inscription_tshirt
+2026-06-22 17:00:44.218 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/drive_fiche_inscription_tshirt.json
+2026-06-22 17:00:44.219 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: True)
+2026-06-22 17:00:44.219 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription_tshirt
+2026-06-22 17:00:44.219 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 17:00:44.219 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click' on field 'TAILE_TSHIRT' (Type: radio) with value 'S'
+2026-06-22 17:00:44.219 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click_then_type' on field 'AUTRES_REMARQUES_OU_COMMENTAIRES' (Type: text_input) with value 'Merci beaucoup pour le t-shirt !'
+2026-06-22 17:00:44.219 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click' on field 'ENVOYER' (Type: button) with value 'True'
+2026-06-22 17:00:44.220 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 17:00:44.220 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_170044.json
+2026-06-22 17:00:44.221 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 17:01:41.849 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 17:01:41.851 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['drive_fiche_inscription_tshirt'], Dry Run: False)
+2026-06-22 17:01:41.852 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from drive_fiche_inscription_tshirt_data.json
+2026-06-22 17:01:41.852 | ERROR    | __main__:main:57 - Unexpected error during execution: [Errno 2] No such file or directory: 'drive_fiche_inscription_tshirt_data.json'
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 63, in <module>
+    main()
+    └ <function main at 0x000001B56D49C220>
+
+> File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 48, in main
+    agent.run_scenario(
+    │     └ <function LocalAgent.run_scenario at 0x000001B5117728E0>
+    └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x000001B5117C8110>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\agents\local_agent.py", line 42, in run_scenario
+    all_data = self.data_loader.load_data(data_file)
+               │    │           │         └ 'drive_fiche_inscription_tshirt_data.json'
+               │    │           └ <function DataLoader.load_data at 0x000001B510C479C0>
+               │    └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x000001B5117C8210>
+               └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x000001B5117C8110>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 22, in load_data
+    raw_data = self.load_json(file_path)
+               │    │         └ 'drive_fiche_inscription_tshirt_data.json'
+               │    └ <function DataLoader.load_json at 0x000001B57FE08180>
+               └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x000001B5117C8210>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 10, in load_json
+    with open(file_path, "r", encoding="utf-8") as f:
+              └ 'drive_fiche_inscription_tshirt_data.json'
+
+FileNotFoundError: [Errno 2] No such file or directory: 'drive_fiche_inscription_tshirt_data.json'
+2026-06-22 17:01:41.856 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 17:02:34.213 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 17:02:34.215 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['drive_fiche_inscription_tshirt'], Dry Run: False)
+2026-06-22 17:02:34.215 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/drive_fiche_inscription_tshirt_data.json
+2026-06-22 17:02:34.216 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 17:02:34.216 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: drive_fiche_inscription_tshirt
+2026-06-22 17:02:34.216 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/drive_fiche_inscription_tshirt.json
+2026-06-22 17:02:34.216 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 17:02:34.217 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is drive_fiche_inscription_tshirt
+2026-06-22 17:02:35.323 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 17:02:35.325 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription_tshirt
+2026-06-22 17:02:35.325 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 17:02:36.914 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILE_TSHIRT' (Type: radio) with value 'S'
+2026-06-22 17:02:37.649 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'AUTRES_REMARQUES_OU_COMMENTAIRES' (Type: text_input) with value 'Merci beaucoup pour le t-shirt !'
+2026-06-22 17:02:39.524 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'ENVOYER' (Type: button) with value 'True'
+2026-06-22 17:02:40.345 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 17:02:40.346 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_170240.json
+2026-06-22 17:02:40.347 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:36:42.829 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:36:42.860 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: True)
+2026-06-22 19:36:42.861 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_test.json
+2026-06-22 19:36:42.861 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 19:36:42.861 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:36:42.861 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:36:42.891 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: True)
+2026-06-22 19:36:42.891 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:36:42.891 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 19:36:42.892 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 19:36:42.892 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 19:36:42.892 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:43 - [DRY RUN] Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 19:36:42.892 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 19:36:42.893 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_193642.json
+2026-06-22 19:36:42.894 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:37:07.032 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:37:07.034 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: False)
+2026-06-22 19:37:07.034 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_test.json
+2026-06-22 19:37:07.035 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 19:37:07.035 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:37:07.035 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:37:07.035 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 19:37:07.172 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:37:09.225 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:37:09.227 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:37:09.227 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 19:37:11.029 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 19:37:12.861 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 19:37:13.642 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 19:37:14.536 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 19:37:14.537 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_193714.json
+2026-06-22 19:37:14.538 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:38:36.418 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:38:36.419 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: False)
+2026-06-22 19:38:36.420 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 19:38:36.420 | ERROR    | __main__:main:57 - Unexpected error during execution: [Errno 2] No such file or directory: 'data/html_fiche_inscription_data.json'
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 63, in <module>
+    main()
+    └ <function main at 0x00000288FDBEC220>
+
+> File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\main.py", line 48, in main
+    agent.run_scenario(
+    │     └ <function LocalAgent.run_scenario at 0x00000288A1F328E0>
+    └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x00000288A1F881D0>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\agents\local_agent.py", line 42, in run_scenario
+    all_data = self.data_loader.load_data(data_file)
+               │    │           │         └ 'data/html_fiche_inscription_data.json'
+               │    │           └ <function DataLoader.load_data at 0x00000288A13F79C0>
+               │    └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x00000288A1F88290>
+               └ <tes_v2_local_agent.agents.local_agent.LocalAgent object at 0x00000288A1F881D0>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 22, in load_data
+    raw_data = self.load_json(file_path)
+               │    │         └ 'data/html_fiche_inscription_data.json'
+               │    └ <function DataLoader.load_json at 0x000002889EDB8180>
+               └ <tes_v2_local_agent.core.data_loader.DataLoader object at 0x00000288A1F88290>
+
+  File "D:\STREAMLIT_LOCAL_AMBIENT_SCRIBING\COMPUTER_USE_LOCAL_AI_AGENT\TES_cloned_V3_TEST\tes_v2_local_agent\core\data_loader.py", line 10, in load_json
+    with open(file_path, "r", encoding="utf-8") as f:
+              └ 'data/html_fiche_inscription_data.json'
+
+FileNotFoundError: [Errno 2] No such file or directory: 'data/html_fiche_inscription_data.json'
+2026-06-22 19:38:36.450 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:39:11.382 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:39:11.383 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: False)
+2026-06-22 19:39:11.383 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 19:39:11.384 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 19:39:11.384 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:39:11.384 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:39:11.385 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 19:39:11.385 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:39:11.698 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:39:11.699 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:39:11.699 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 19:39:13.358 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 19:39:15.191 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 19:39:15.978 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 19:39:16.765 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 19:39:16.768 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_193916.json
+2026-06-22 19:39:16.771 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:41:02.324 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:41:02.326 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: False)
+2026-06-22 19:41:02.326 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 19:41:02.326 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/2] Starting ===
+2026-06-22 19:41:02.326 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:41:02.326 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:41:02.327 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 19:41:02.327 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:41:02.629 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:41:02.630 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:41:02.630 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 19:41:04.443 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 19:41:06.219 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 19:41:07.125 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 19:41:07.871 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 19:41:07.871 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 2/2] Starting ===
+2026-06-22 19:41:07.872 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:41:07.872 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:41:07.873 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:41:07.965 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:41:07.967 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:41:07.967 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'NOM' not found in record for screen 'fiche_inscription'
+2026-06-22 19:41:07.968 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'EMAIL' not found in record for screen 'fiche_inscription'
+2026-06-22 19:41:07.968 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'TAILLE_TSHIRT' not found in record for screen 'fiche_inscription'
+2026-06-22 19:41:07.968 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'RECEVOIR_NEWSLETTER' not found in record for screen 'fiche_inscription'
+2026-06-22 19:41:07.969 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 2] Finished Successfully ===
+2026-06-22 19:41:08.092 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_194107.json
+2026-06-22 19:41:08.093 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 19:51:53.403 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 19:51:53.405 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription'], Dry Run: False)
+2026-06-22 19:51:53.405 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 19:51:53.406 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/2] Starting ===
+2026-06-22 19:51:53.406 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:51:53.406 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:51:53.407 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 19:51:53.407 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:51:53.725 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:51:53.727 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:51:53.727 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 19:51:55.389 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 19:51:57.213 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 19:51:57.970 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 19:51:58.850 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 19:51:58.851 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 2/2] Starting ===
+2026-06-22 19:51:58.854 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 19:51:58.856 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 19:51:58.859 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 19:51:58.946 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 19:51:58.948 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 19:51:58.949 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'NOM' not found in record for screen 'fiche_inscription'
+2026-06-22 19:51:58.949 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'EMAIL' not found in record for screen 'fiche_inscription'
+2026-06-22 19:51:58.949 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'TAILLE_TSHIRT' not found in record for screen 'fiche_inscription'
+2026-06-22 19:51:58.949 | WARNING  | tes_v2_local_agent.core.data_mapper:map_record_to_screen:44 - Key 'RECEVOIR_NEWSLETTER' not found in record for screen 'fiche_inscription'
+2026-06-22 19:51:58.950 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 2] Finished Successfully ===
+2026-06-22 19:51:58.950 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_195158.json
+2026-06-22 19:51:58.951 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 20:15:36.138 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 20:15:36.140 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription', 'html_fiche_inscription2'], Dry Run: False)
+2026-06-22 20:15:36.140 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 20:15:36.140 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 20:15:36.141 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 20:15:36.141 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 20:15:36.141 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 20:15:36.141 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 20:15:36.475 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 20:15:36.477 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 20:15:36.478 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 20:15:38.224 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 20:15:40.128 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 20:15:40.970 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 20:15:41.797 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:13 - Attempting to navigate to html_fiche_inscription2
+2026-06-22 20:15:41.797 | WARNING  | tes_v2_local_agent.core.navigator:navigate_to_screen:26 - No direct navigation found from current screen to html_fiche_inscription2
+2026-06-22 20:15:41.798 | WARNING  | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:107 - No navigation link found for html_fiche_inscription2, assuming manual transition or end of flow.
+2026-06-22 20:15:41.798 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription2
+2026-06-22 20:15:41.798 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription2.json
+2026-06-22 20:15:41.799 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:15:41.894 | WARNING  | tes_v2_local_agent.core.screen_detector:detect_screen:45 - Screen html_fiche_inscription2 not detected (hash diff=22)
+2026-06-22 20:15:41.895 | INFO     | tes_v2_local_agent.agents.local_agent:_wait_for_screen:153 - Waiting for html_fiche_inscription2 (Attempt 1/5)...
+2026-06-22 20:15:43.896 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:15:43.979 | WARNING  | tes_v2_local_agent.core.screen_detector:detect_screen:45 - Screen html_fiche_inscription2 not detected (hash diff=22)
+2026-06-22 20:15:43.982 | INFO     | tes_v2_local_agent.agents.local_agent:_wait_for_screen:153 - Waiting for html_fiche_inscription2 (Attempt 2/5)...
+2026-06-22 20:15:45.983 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:15:46.077 | WARNING  | tes_v2_local_agent.core.screen_detector:detect_screen:45 - Screen html_fiche_inscription2 not detected (hash diff=22)
+2026-06-22 20:15:46.078 | INFO     | tes_v2_local_agent.agents.local_agent:_wait_for_screen:153 - Waiting for html_fiche_inscription2 (Attempt 3/5)...
+2026-06-22 20:15:48.079 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:15:48.168 | WARNING  | tes_v2_local_agent.core.screen_detector:detect_screen:45 - Screen html_fiche_inscription2 not detected (hash diff=22)
+2026-06-22 20:15:48.170 | INFO     | tes_v2_local_agent.agents.local_agent:_wait_for_screen:153 - Waiting for html_fiche_inscription2 (Attempt 4/5)...
+2026-06-22 20:15:50.171 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:15:50.266 | WARNING  | tes_v2_local_agent.core.screen_detector:detect_screen:45 - Screen html_fiche_inscription2 not detected (hash diff=22)
+2026-06-22 20:15:50.268 | INFO     | tes_v2_local_agent.agents.local_agent:_wait_for_screen:153 - Waiting for html_fiche_inscription2 (Attempt 5/5)...
+2026-06-22 20:15:52.269 | ERROR    | tes_v2_local_agent.agents.local_agent:run_scenario:60 - === [Record 1] Failed: Screen html_fiche_inscription2 not detected. ===
+2026-06-22 20:15:52.520 | ERROR    | tes_v2_local_agent.agents.local_agent:_capture_error_state:162 - Error screenshot saved: error_record_1_1782152152.png
+2026-06-22 20:15:52.520 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_201552.json
+2026-06-22 20:15:52.520 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-22 20:17:54.488 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-22 20:17:54.489 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription', 'html_fiche_inscription2'], Dry Run: False)
+2026-06-22 20:17:54.489 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-22 20:17:54.490 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-22 20:17:54.490 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-22 20:17:54.491 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-22 20:17:54.491 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-22 20:17:54.491 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-22 20:17:54.792 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-22 20:17:54.794 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-22 20:17:54.794 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-22 20:17:56.601 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-22 20:17:58.490 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-22 20:17:59.221 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-22 20:18:00.097 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:13 - Attempting to navigate to html_fiche_inscription2
+2026-06-22 20:18:00.097 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:22 - Found navigation element: MOVE_TO_SUIVANT
+2026-06-22 20:18:00.097 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'MOVE_TO_SUIVANT' (Type: button) with value 'None' [NAVIGATION -> html_fiche_inscription2]
+2026-06-22 20:18:02.436 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription2
+2026-06-22 20:18:02.437 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription2.json
+2026-06-22 20:18:02.440 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-22 20:18:02.489 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:31 - Screen match found via hash (diff=4)
+2026-06-22 20:18:02.490 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription2
+2026-06-22 20:18:02.490 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'REMARQUES' (Type: text_input) with value 'Je suis très content de participer à ce projet. Le t-shirt sera parfait !'
+2026-06-22 20:18:04.869 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'ENVOYER_FORMULAIRE' (Type: button) with value 'True'
+2026-06-22 20:18:05.712 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-22 20:18:05.713 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260622_201805.json
+2026-06-22 20:18:05.714 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-23 08:58:25.189 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-23 08:58:25.220 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription', 'html_fiche_inscription2'], Dry Run: False)
+2026-06-23 08:58:25.221 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-23 08:58:25.241 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-23 08:58:25.241 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-23 08:58:25.241 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-23 08:58:25.262 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-23 08:58:25.263 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-23 08:58:28.501 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-23 08:58:28.503 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-23 08:58:28.503 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-23 08:58:30.188 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-23 08:58:32.091 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-23 08:58:32.978 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-23 08:58:33.837 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:13 - Attempting to navigate to html_fiche_inscription2
+2026-06-23 08:58:33.837 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:22 - Found navigation element: MOVE_TO_SUIVANT
+2026-06-23 08:58:33.839 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'MOVE_TO_SUIVANT' (Type: button) with value 'None' [NAVIGATION -> html_fiche_inscription2]
+2026-06-23 08:58:36.176 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription2
+2026-06-23 08:58:36.176 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription2.json
+2026-06-23 08:58:36.199 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-23 08:58:36.297 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:31 - Screen match found via hash (diff=4)
+2026-06-23 08:58:36.298 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription2
+2026-06-23 08:58:36.298 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'REMARQUES' (Type: text_input) with value 'Je suis très content de participer à ce projet. Le t-shirt sera parfait !'
+2026-06-23 08:58:38.660 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'ENVOYER_FORMULAIRE' (Type: button) with value 'True'
+2026-06-23 08:58:39.437 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-23 08:58:39.438 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260623_085839.json
+2026-06-23 08:58:39.439 | INFO     | __main__:main:60 - Agent session finished.
+2026-06-23 09:17:46.837 | INFO     | tes_v2_local_agent.utils.emergency_stop:start:11 - Emergency Stop active (Press 'ESC' to stop the agent)
+2026-06-23 09:17:46.839 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:41 - Starting automation session (Scenario: ['html_fiche_inscription', 'html_fiche_inscription2'], Dry Run: False)
+2026-06-23 09:17:46.839 | INFO     | tes_v2_local_agent.core.data_loader:load_json:9 - Loading JSON data from data/html_fiche_inscription_data.json
+2026-06-23 09:17:46.839 | INFO     | tes_v2_local_agent.agents.local_agent:run_scenario:46 - === [Record 1/1] Starting ===
+2026-06-23 09:17:46.839 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription
+2026-06-23 09:17:46.840 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription.json
+2026-06-23 09:17:46.841 | INFO     | tes_v2_local_agent.core.action_executor:__init__:18 - ActionExecutor initialized (Current Res: 1920x1080, Mapping Res: (1920, 1080), Dry Run: False)
+2026-06-23 09:17:46.841 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription
+2026-06-23 09:17:47.183 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-23 09:17:47.184 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription
+2026-06-23 09:17:47.184 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'NOM' (Type: text_input) with value 'Jean Dupont'
+2026-06-23 09:17:49.006 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'EMAIL' (Type: text_input) with value 'jean.dupont@example.com'
+2026-06-23 09:17:50.926 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'TAILLE_TSHIRT' (Type: radio) with value 'XL'
+2026-06-23 09:17:51.753 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'check' on field 'RECEVOIR_NEWSLETTER' (Type: checkbox) with value 'True'
+2026-06-23 09:17:52.500 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:13 - Attempting to navigate to html_fiche_inscription2
+2026-06-23 09:17:52.500 | INFO     | tes_v2_local_agent.core.navigator:navigate_to_screen:22 - Found navigation element: MOVE_TO_SUIVANT
+2026-06-23 09:17:52.501 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'MOVE_TO_SUIVANT' (Type: button) with value 'None' [NAVIGATION -> html_fiche_inscription2]
+2026-06-23 09:17:54.841 | INFO     | tes_v2_local_agent.agents.local_agent:execute_scenario_for_record:80 - Targeting Screen: html_fiche_inscription2
+2026-06-23 09:17:54.841 | INFO     | tes_v2_local_agent.core.mapping_loader:load_screen_mapping:7 - Loading screen mapping from mappings/html_fiche_inscription2.json
+2026-06-23 09:17:54.842 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:20 - Checking if current screen is html_fiche_inscription2
+2026-06-23 09:17:54.937 | INFO     | tes_v2_local_agent.core.screen_detector:detect_screen:42 - Screen match found via template matching
+2026-06-23 09:17:54.938 | DEBUG    | tes_v2_local_agent.core.data_mapper:map_record_to_screen:23 - Mapping record to screen: fiche_inscription2
+2026-06-23 09:17:54.938 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click_then_type' on field 'REMARQUES' (Type: text_input) with value 'Je suis très content de participer à ce projet. Le t-shirt sera parfait !'
+2026-06-23 09:17:57.374 | INFO     | tes_v2_local_agent.core.action_executor:execute_action:46 - Executing: Action 'click' on field 'ENVOYER_FORMULAIRE' (Type: button) with value 'True'
+2026-06-23 09:17:58.156 | SUCCESS  | tes_v2_local_agent.agents.local_agent:run_scenario:58 - === [Record 1] Finished Successfully ===
+2026-06-23 09:17:58.156 | INFO     | tes_v2_local_agent.agents.local_agent:_save_final_report:168 - Final execution report saved to execution_report_20260623_091758.json
+2026-06-23 09:17:58.157 | INFO     | __main__:main:60 - Agent session finished.

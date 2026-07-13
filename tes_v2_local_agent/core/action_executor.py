@@ -52,19 +52,6 @@ class ActionExecutor:
 
     @retry(Exception, tries=3, delay=1, backoff=2)
     def _execute_with_retry(self, field: FieldMapping, value: Any):
-        execution_hint = getattr(field, 'execution_hint', 'pyautogui_fallback')
-        patterns = getattr(field, 'supported_patterns', [])
-
-        if execution_hint == 'uia_native' and field.pywinauto_selector:
-            # Attempt UIA-native execution first
-            try:
-                success = self._execute_uia_native(field, value, patterns)
-                if success:
-                    return
-                # Fall through to pyautogui if UIA call fails
-            except Exception as e:
-                logger.warning(f"UIA native execution failed for {field.logical_key}: {e}. Falling back.")
-
         target = field.click_target
         if not target:
             target = ClickTarget(
@@ -83,15 +70,6 @@ class ActionExecutor:
                 return
             elif ui_type == "dropdown" or ui_type == "date_picker":
                 self.handle_dropdown(field, value)
-                return
-            elif ui_type == "radio_group":
-                self._handle_radio_group(field, value)
-                return
-            elif ui_type == "checkbox_group":
-                self._handle_checkbox_group(field, value)
-                return
-            elif ui_type == "tab_bar":
-                self._handle_tab_bar(field, value)
                 return
 
         # Action Dispatch
@@ -114,20 +92,6 @@ class ActionExecutor:
             self.click(abs_x, abs_y)
         elif action == "scroll":
             self.scroll(field)
-        elif action in ("select_by_label", "check_by_label", "uncheck_by_label", "click_by_label"):
-            if ui_type == "radio_group":
-                self._handle_radio_group(field, value)
-            elif ui_type == "checkbox_group":
-                self._handle_checkbox_group(field, value)
-            elif ui_type == "tab_bar":
-                self._handle_tab_bar(field, value)
-            else:
-                # Fallback to fuzzy choice finding if ui_type is not a group but has choices
-                if field.choices:
-                    choice = self._find_choice_fuzzy(field.choices, str(value))
-                    if choice:
-                        cx, cy = self._get_abs_coords(choice.x, choice.y)
-                        self.click(cx, cy)
         elif action == "drag":
             self.drag(field)
         elif action == "none":
@@ -135,82 +99,6 @@ class ActionExecutor:
         else:
             logger.warning(f"Action '{action}' is unhandled, attempting generic click")
             self.click(abs_x, abs_y)
-
-    def _execute_uia_native(self, field: FieldMapping, value: Any, patterns: List[str]) -> bool:
-        """
-        Attempt to execute action using pywinauto UIA patterns directly.
-        Returns True if successful, False if should fall back to pyautogui.
-        """
-        try:
-            import pywinauto
-            from pywinauto.uia_defines import NoPatternInterfaceError
-        except ImportError:
-            return False
-
-        selector = field.pywinauto_selector
-        if not selector:
-            return False
-
-        try:
-            # Reconnect to the target window
-            from pywinauto import Desktop
-            desktop = Desktop(backend="uia")
-
-            # Build search kwargs from pywinauto_selector
-            search_kwargs = {}
-            if selector.get("automation_id"):
-                search_kwargs["auto_id"] = selector["automation_id"]
-            if selector.get("control_type"):
-                search_kwargs["control_type"] = selector["control_type"]
-            if selector.get("title"):
-                search_kwargs["title"] = selector["title"]
-
-            if not search_kwargs:
-                return False
-
-            ctrl = desktop.window(**search_kwargs).wrapper_object()
-
-        except Exception:
-            return False  # Element not findable via UIA selector -> fall back
-
-        action = field.action.lower()
-
-        try:
-            if action in ("check", "uncheck") and "Toggle" in patterns:
-                current_state = ctrl.get_toggle_state()  # 0=off, 1=on, 2=indeterminate
-                target_state = 1 if action == "check" else 0
-                if current_state != target_state:
-                    ctrl.toggle()
-                return True
-
-            elif action == "select" and "SelectionItem" in patterns:
-                ctrl.select()
-                return True
-
-            elif action == "click" and "Invoke" in patterns:
-                ctrl.invoke()
-                return True
-
-            elif action in ("click_then_type", "type") and "Value" in patterns:
-                ctrl.set_edit_text(str(value))  # EditWrapper method
-                return True
-
-            elif action == "set_value" and "RangeValue" in patterns:
-                ctrl.set_value(float(value))
-                return True
-
-            elif action == "select" and "ExpandCollapse" in patterns and "Selection" in patterns:
-                # ComboBox: expand, then select child item by label
-                ctrl.expand()
-                self._human_delay(0.3, 0.5)
-                ctrl.select(str(value))
-                return True
-
-        except (NoPatternInterfaceError, Exception) as e:
-            logger.warning(f"UIA pattern call failed: {e}")
-            return False
-
-        return False  # Action not handled via UIA -> fall back
 
     def click(self, x: int, y: int, clicks=1):
         self._human_delay()
@@ -310,50 +198,6 @@ class ActionExecutor:
         # This requires access to all elements in the screen.
         # For now, log it.
         logger.warning(f"Drag action for {field.logical_key} not fully implemented")
-
-    def _handle_radio_group(self, field: FieldMapping, value: str):
-        if not field.choices:
-            raise ValueError(f"radio_group {field.logical_key} has no choices defined")
-        target = self._find_choice_fuzzy(field.choices, str(value))
-        if not target:
-            available = [c.label for c in field.choices]
-            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
-        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
-        self.click(abs_x, abs_y)
-
-    def _handle_checkbox_group(self, field: FieldMapping, value: str):
-        if not field.choices:
-            raise ValueError(f"checkbox_group {field.logical_key} has no choices defined")
-        target = self._find_choice_fuzzy(field.choices, str(value))
-        if not target:
-            available = [c.label for c in field.choices]
-            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
-        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
-        self.click(abs_x, abs_y)
-
-    def _handle_tab_bar(self, field: FieldMapping, value: str):
-        if not field.choices:
-            raise ValueError(f"tab_bar {field.logical_key} has no choices defined")
-        target = self._find_choice_fuzzy(field.choices, str(value))
-        if not target:
-            available = [c.label for c in field.choices]
-            raise ValueError(f"No choice matching '{value}' in {field.logical_key}. Available: {available}")
-        abs_x, abs_y = self._get_abs_coords(target.x, target.y)
-        self.click(abs_x, abs_y)
-
-    def _find_choice_fuzzy(self, choices: List[Choice], value: str) -> Optional[Choice]:
-        if not value: return None
-        v = str(value).strip().lower()
-        # Exact match
-        for c in choices:
-            if c.label == value: return c
-        # Case-insensitive
-        for c in choices:
-            if c.label.lower() == v: return c
-        # Starts-with
-        for c in choices:
-            if c.label.lower().startswith(v[:3]): return c
-        return None
 
     def _find_choice(self, choices: List[Choice], label: str) -> Optional[Choice]:
         for c in choices:

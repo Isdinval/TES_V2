@@ -133,6 +133,7 @@ class MainWindow(QMainWindow):
         self.v_splitter = QSplitter(Qt.Orientation.Vertical)
 
         self.element_form = ElementForm()
+        self.element_form.set_canvas(self.canvas)
         self.element_form.element_updated.connect(self._on_element_updated)
         self.element_form.setMinimumHeight(200)
         self.v_splitter.addWidget(self.element_form)
@@ -348,24 +349,47 @@ class MainWindow(QMainWindow):
         INTERACTIVE_TYPES = {"RadioButton", "CheckBox", "TabItem", "Button"}
         members.sort(key=lambda m: (0 if m.control_type in INTERACTIVE_TYPES else 1, m.rectangle[1]))
 
-        # Detect predominant type
+        # Detect predominant type with majority-vote + override
+        from collections import Counter
         types_in_zone = [m.control_type for m in members]
-        if all(t == "RadioButton" for t in types_in_zone):
-            proposed_ui_type = "radio_group"
-            proposed_action = "select_by_label"
-        elif all(t == "CheckBox" for t in types_in_zone):
-            proposed_ui_type = "checkbox_group"
-            proposed_action = "check_by_label"
-        elif all(t == "TabItem" for t in types_in_zone):
-            proposed_ui_type = "tab_bar"
-            proposed_action = "click_by_label"
-        elif all(t in ("ListItem", "MenuItem") for t in types_in_zone):
-            proposed_ui_type = "dropdown_group"
-            proposed_action = "select_by_label"
-        else:
-            proposed_ui_type = "radio_group"
-            proposed_action = "select_by_label"
+        type_counts = Counter(types_in_zone)
 
+        TYPE_TO_UI = {
+            "RadioButton":  "radio_group",
+            "CheckBox":     "checkbox_group",
+            "TabItem":      "tab_bar",
+            "ListItem":     "dropdown_group",
+            "MenuItem":     "dropdown_group",
+        }
+
+        dominant_type, dominant_count = type_counts.most_common(1)[0]
+        proposed_ui_type = TYPE_TO_UI.get(dominant_type, "radio_group")
+        proposed_action_map = {
+            "radio_group":    "select_by_label",
+            "checkbox_group": "check_by_label",
+            "tab_bar":        "click_by_label",
+            "dropdown_group": "select_by_label",
+        }
+        proposed_action = proposed_action_map.get(proposed_ui_type, "select_by_label")
+
+        # Special case: RadioButton items that are actually dropdown options
+        auto_reclassified = False
+        if proposed_ui_type == "radio_group" and len(members) >= 2:
+            heights = [m.rectangle[3] for m in members]
+            avg_height = sum(heights) / len(heights)
+            gaps = []
+            sorted_members = sorted(members, key=lambda m: m.rectangle[1])
+            for i in range(1, len(sorted_members)):
+                gap = sorted_members[i].rectangle[1] - (
+                    sorted_members[i-1].rectangle[1] + sorted_members[i-1].rectangle[3]
+                )
+                gaps.append(gap)
+            if gaps and all(abs(g) < avg_height * 0.3 for g in gaps):
+                proposed_ui_type = "dropdown_group"
+                proposed_action = "select_by_label"
+                auto_reclassified = True
+
+        unknown_type = dominant_type not in TYPE_TO_UI
         # Build group bounding box (union of members)
         left   = min(m.rectangle[0] for m in members)
         top    = min(m.rectangle[1] for m in members)
@@ -427,7 +451,17 @@ class MainWindow(QMainWindow):
         self.element_form.set_element(group_el)
 
         # 4. Visual feedback
-        if proposed_ui_type == "dropdown_group":
+        if auto_reclassified:
+            self.status_label.setText(
+                f"⚠ Elements were classified as '{dominant_type}' but look like a list. "
+                f"Proposed: dropdown_group. Change ui_type in the form if incorrect."
+            )
+        elif unknown_type:
+            self.status_label.setText(
+                f"⚠ Could not auto-classify elements (type: '{dominant_type}'). "
+                f"Defaulted to 'radio_group'. Please change ui_type and verify choices in the form."
+            )
+        elif proposed_ui_type == "dropdown_group":
             self.status_label.setText(
                 "Dropdown options captured. Now set logical_key to match the trigger "
                 "dropdown element and click 'Update Element'."
@@ -441,12 +475,13 @@ class MainWindow(QMainWindow):
     def _on_export_requested(self, silent=False):
         if not self.canvas.elements: return
 
-        # Resolve dropdown_group triggers by matching logical_key with a 'dropdown' element
+        # Resolve triggers for ALL multi-choice types with no trigger already set
+        MULTI_CHOICE_TYPES = {"radio_group", "checkbox_group", "tab_bar", "dropdown_group"}
         dropdowns = {el.logical_key: el for el in self.canvas.elements
                      if el.ui_type == "dropdown" and el.logical_key}
 
         for el in self.canvas.elements:
-            if el.ui_type == "dropdown_group" and el.logical_key in dropdowns:
+            if el.ui_type in MULTI_CHOICE_TYPES and el.logical_key in dropdowns and not el.trigger:
                 trigger_el = dropdowns[el.logical_key]
                 rw, rh = self.ref_resolution
                 tx, ty, tw, th = trigger_el.rectangle
@@ -454,7 +489,7 @@ class MainWindow(QMainWindow):
                     "x": round(tx / rw, 6),
                     "y": round(ty / rh, 6),
                     "w": round(tw / rw, 6),
-                    "h": round(th / rh, 6)
+                    "h": round(th / rh, 6),
                 }
 
         app_name = self.app_name_edit.text().strip()

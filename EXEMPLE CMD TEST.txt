@@ -1,0 +1,74 @@
+##########################################################
+# VUE D'ENSEMBLE (INPUTS)
+##########################################################
+Input 1 : Fichiers de mapping
+JSON produits par le mapping tool — un fichier par écran
+
+Input 2 : Fichier de données
+Excel ou JSON — les données à injecter dans le formulaire
+
+Input 3 : Screenshots de référence
+PNG de chaque écran pour que l'agent sache où il se trouve
+
+Input 4 (opt.) : Templates de popups
+PNG des popups connues à fermer automatiquement
+
+
+##########################################################
+# STRUCTURE DE DOSSIERS A CREER
+##########################################################
+mon_projet/
+  mappings/              ← JSON exportés par TES_V2 (1 par écran)
+    Login.json
+    Dashboard.json
+    FicheClient.json
+  reference_screenshots/ ← PNG pris manuellement (1 par écran)
+    Login.png
+    Dashboard.png
+    FicheClient.png
+  popups/                (optionnel) PNG des popups à fermer
+    confirmation_dialog.png
+  data/
+    source.xlsx           ← ou source.json
+
+##########################################################
+# COMMANDE DE LANCEMENT
+##########################################################
+# Windows (CMD)
+python -m tes_v2_local_agent.main ^
+  --data data/html_fiche_inscription_data.json ^
+  --scenario html_fiche_inscription,html_fiche_inscription2 ^
+  --mappings mappings/ ^
+  --refs reference_screenshots/ ^
+  --popups popups/
+
+
+Tous les arguments disponibles
+Argument			Description
+--data		requis		Chemin vers .xlsx, .xls, ou .json
+--scenario	requis		Écrans dans l'ordre, séparés par des virgules. Ex : Login,Home,Form
+--mappings	optionnel	Dossier des JSON de mapping. Défaut : mappings/
+--refs		optionnel	Dossier des screenshots de référence. Défaut : reference_screenshots/
+--popups	optionnel	Dossier des templates de popups. Défaut : popups/
+--dry-run	optionnel	Simule tout sans bouger la souris. Toujours tester d'abord.
+--start-from	optionnel	Reprendre à partir d'un écran précis. Ex : --start-from FicheClient
+
+
+##########################################################
+# PROTOCOLE TEST RECOMMANDE
+##########################################################
+Protocole de test recommandé
+Étape 1 : Dry-run
+Vérifier que les mappings chargent et que les clés sont trouvées dans les données
+
+Étape 2 : 1 enregistrement réel
+Exécuter avec 1 seule ligne de données, surveiller la console
+
+Étape 3 : Rapport JSON
+Vérifier execution_report_*.json pour les champs échoués
+
+Étape 4 : Batch complet
+Lancer sur toutes les données. ESC pour stopper à tout moment.
+  
+
+> Le rapport d'exécution est sauvegardé automatiquement dans execution_report_YYYYMMDD_HHMMSS.json à la racine du projet à la fin de chaque session.
